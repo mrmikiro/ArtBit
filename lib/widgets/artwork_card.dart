@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import '../models/artwork.dart';
 import '../utils/constants.dart';
@@ -34,12 +35,19 @@ class ArtworkCard extends StatelessWidget {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: artwork.imagePath != null
-                      ? Image.file(
-                          File(artwork.imagePath!),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildPlaceholder(),
-                        )
+                      ? (kIsWeb
+                          ? Image.network(
+                              artwork.imagePath!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildPlaceholder(),
+                            )
+                          : Image.file(
+                              File(artwork.imagePath!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  _buildPlaceholder(),
+                            ))
                       : _buildPlaceholder(),
                 ),
               ),

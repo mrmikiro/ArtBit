@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/artwork.dart';
-import '../utils/database_helper.dart';
+import '../utils/storage_helper.dart';
 
 class ArtCollectionProvider extends ChangeNotifier {
-  final DatabaseHelper _dbHelper = DatabaseHelper();
+  final StorageHelper _dbHelper = StorageHelper();
 
   List<ArtWork> _artworks = [];
   List<ArtWork> _filteredArtworks = [];
@@ -198,6 +198,9 @@ class ArtCollectionProvider extends ChangeNotifier {
   /// Save image to app's documents directory if it's from a temp location
   Future<ArtWork> _saveImageIfNeeded(ArtWork artwork) async {
     if (artwork.imagePath == null) return artwork;
+
+    // On web, just keep the path as-is (blob/data URL)
+    if (kIsWeb) return artwork;
 
     final file = File(artwork.imagePath!);
     if (!await file.exists()) return artwork;

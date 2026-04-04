@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -138,12 +139,21 @@ class ArtworkDetailScreen extends StatelessWidget {
               background: Hero(
                 tag: 'artwork_${artwork.id}',
                 child: artwork.imagePath != null
-                    ? Image.file(
-                        File(artwork.imagePath!),
-                        fit: BoxFit.cover,
-                        width: double.infinity,
-                        errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                      )
+                    ? (kIsWeb
+                        ? Image.network(
+                            artwork.imagePath!,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) =>
+                                _buildImagePlaceholder(),
+                          )
+                        : Image.file(
+                            File(artwork.imagePath!),
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (_, __, ___) =>
+                                _buildImagePlaceholder(),
+                          ))
                     : _buildImagePlaceholder(),
               ),
             ),
