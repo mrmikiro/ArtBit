@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="ArtBit - Personal art collection management">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="ArtBit">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <title>ArtBit</title>
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #FAFAFA;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100%;
+    }
+
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      gap: 24px;
+    }
+
+    .loading h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1A1A1A;
+      letter-spacing: -1px;
+      margin: 0;
+    }
+
+    .loading p {
+      font-size: 14px;
+      color: #A0A0A0;
+      margin: 0;
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 2px solid #E8E8E8;
+      border-top: 2px solid #1A1A1A;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="loading" id="loading">
+    <h1>ArtBit</h1>
+    <div class="spinner"></div>
+    <p>Cargando colección...</p>
+  </div>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

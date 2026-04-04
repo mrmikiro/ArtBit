@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -437,11 +438,19 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.file(
-                    File(_imagePath!),
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildImagePlaceholder(),
-                  ),
+                  kIsWeb
+                      ? Image.network(
+                          _imagePath!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _buildImagePlaceholder(),
+                        )
+                      : Image.file(
+                          File(_imagePath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _buildImagePlaceholder(),
+                        ),
                   Positioned(
                     bottom: AppSpacing.sm,
                     right: AppSpacing.sm,
