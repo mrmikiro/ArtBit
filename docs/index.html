@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#1C1A17">
-  <title>Vernissage</title>
+  <meta name="theme-color" content="#4A2820">
+  <title>Getty</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
@@ -16,6 +16,9 @@
   --bg:#F2EDE7;--surface:#FEFCF9;--text-primary:#1C1A17;
   --text-secondary:#5C564E;--text-tertiary:#8A8279;
   --accent:#B5623F;--accent-light:#C87A5A;--accent-dark:#9A4F30;
+  --terracotta:#A0522D;--terracotta-light:#C4704B;--terracotta-dark:#7A3D1E;
+  --gold:#C5A55A;--gold-light:#D4B976;--gold-dark:#A8893E;
+  --leather:#3E2723;--leather-light:#5D4037;--leather-mid:#4E342E;
   --sepia:#D4C4A8;--sepia-light:#E8DFD0;--sepia-dark:#B8A88A;
   --dark:#1C1A17;--dark-soft:#2A2722;--dark-mid:#3A3631;
   --border:#D4CEC4;--border-light:#E8E2DA;
@@ -23,29 +26,61 @@
   --error:#9B2C2C;--divider:#D4CEC4;
   --warm-grey:#7A746B;
   --card-shadow:0 2px 20px rgba(28,26,23,0.07);
-  --card-hover-shadow:0 4px 24px rgba(28,26,23,0.12);
 }
 body{
   font-family:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
   background:var(--bg);color:var(--text-primary);
   overflow-x:hidden;min-height:100vh;-webkit-font-smoothing:antialiased;
 }
-.serif{font-family:'Cormorant Garamond',Georgia,serif}
 .app{max-width:480px;margin:0 auto;min-height:100vh;position:relative}
 
-/* Header */
+/* Header Banner */
 .header{
-  background:linear-gradient(180deg,var(--dark) 0%,var(--dark-soft) 100%);
-  padding:44px 24px 28px;text-align:center;position:relative;
-  border-bottom:3px solid var(--accent);
+  background:linear-gradient(135deg,var(--terracotta-dark) 0%,var(--terracotta) 50%,var(--terracotta-light) 100%);
+  padding:40px 24px 32px;text-align:center;position:relative;
+  box-shadow:0 4px 24px rgba(122,61,30,0.3);
 }
-.header-logo{width:72px;height:72px;margin:0 auto 8px;opacity:0.92}
-.header-logo img{width:100%;height:100%;object-fit:contain;filter:brightness(1.1)}
+.header::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:4px;
+  background:linear-gradient(90deg,var(--gold-dark),var(--gold),var(--gold-dark));
+}
+/* Logo circle */
+.logo-circle{
+  width:88px;height:88px;border-radius:50%;margin:0 auto 14px;
+  background:radial-gradient(circle at 40% 35%,var(--leather-light) 0%,var(--leather) 60%,#2C1B15 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  box-shadow:0 4px 20px rgba(0,0,0,0.35),inset 0 1px 0 rgba(255,255,255,0.08);
+  border:2px solid rgba(197,165,90,0.3);
+  position:relative;overflow:hidden;
+}
+.logo-circle::before{
+  content:'';position:absolute;inset:0;border-radius:50%;
+  background:url("data:image/svg+xml,%3Csvg width='60' height='60' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.8' numOctaves='4'/%3E%3C/filter%3E%3Crect width='60' height='60' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  opacity:0.5;pointer-events:none;
+}
+.logo-g{
+  font-family:'Cormorant Garamond',serif;font-size:42px;font-weight:600;
+  color:transparent;line-height:1;
+  background:linear-gradient(180deg,var(--gold-light) 0%,var(--gold) 40%,var(--gold-dark) 100%);
+  -webkit-background-clip:text;background-clip:text;
+  text-shadow:0 1px 2px rgba(0,0,0,0.2);
+  position:relative;z-index:1;
+}
+.logo-name{
+  font-family:'Cormorant Garamond',serif;font-size:8px;font-weight:500;
+  color:var(--sepia);letter-spacing:3px;text-transform:uppercase;
+  position:relative;z-index:1;margin-top:-2px;
+}
+
 .header h1{
-  font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:400;
-  color:var(--sepia-light);letter-spacing:8px;text-transform:uppercase;
+  font-family:'Cormorant Garamond',serif;font-size:28px;font-weight:400;
+  color:#FFF5E6;letter-spacing:6px;text-transform:uppercase;
+  text-shadow:0 1px 3px rgba(0,0,0,0.2);
 }
-.header .subtitle{font-size:11px;color:rgba(212,196,168,0.5);margin-top:6px;letter-spacing:3px;text-transform:uppercase}
+.header .subtitle{
+  font-size:10px;color:rgba(255,245,230,0.55);margin-top:6px;
+  letter-spacing:3px;text-transform:uppercase;
+}
 
 /* Search */
 .search-wrapper{padding:20px 24px 8px}
@@ -55,49 +90,30 @@ body{
   box-shadow:var(--card-shadow);border:1px solid var(--border-light);
 }
 .search-bar .icon{color:var(--warm-grey);font-size:20px}
-.search-bar input{
-  flex:1;border:none;background:none;outline:none;
-  font-size:14px;color:var(--text-primary);font-family:inherit;
-}
+.search-bar input{flex:1;border:none;background:none;outline:none;font-size:14px;color:var(--text-primary);font-family:inherit}
 .search-bar input::placeholder{color:var(--text-tertiary)}
 .search-clear{cursor:pointer;color:var(--text-tertiary);font-size:18px;display:none}
 .search-clear.show{display:block}
 .filter-divider{width:1px;height:20px;background:var(--border)}
 .filter-btn{cursor:pointer;color:var(--warm-grey);font-size:20px;position:relative;padding:4px}
-.filter-btn .dot{
-  position:absolute;top:2px;right:2px;width:7px;height:7px;
-  background:var(--accent);border-radius:50%;display:none;
-}
+.filter-btn .dot{position:absolute;top:2px;right:2px;width:7px;height:7px;background:var(--accent);border-radius:50%;display:none}
 .filter-btn .dot.show{display:block}
 
 /* Filters */
 .filters-panel{overflow:hidden;max-height:0;transition:max-height 0.3s ease}
 .filters-panel.open{max-height:400px}
 .filter-section{padding:0 0 14px}
-.filter-label{
-  font-size:10px;font-weight:600;color:var(--warm-grey);
-  letter-spacing:2px;padding:0 24px 8px;text-transform:uppercase;
-}
-.chips-scroll{
-  display:flex;gap:8px;overflow-x:auto;padding:0 24px;
-  scrollbar-width:none;-ms-overflow-style:none;
-}
+.filter-label{font-size:10px;font-weight:600;color:var(--warm-grey);letter-spacing:2px;padding:0 24px 8px;text-transform:uppercase}
+.chips-scroll{display:flex;gap:8px;overflow-x:auto;padding:0 24px;scrollbar-width:none;-ms-overflow-style:none}
 .chips-scroll::-webkit-scrollbar{display:none}
 .chip{
-  flex-shrink:0;padding:8px 16px;border-radius:24px;
-  font-size:12px;cursor:pointer;transition:all 0.25s ease;
-  background:var(--chip-bg);color:var(--text-secondary);
+  flex-shrink:0;padding:8px 16px;border-radius:24px;font-size:12px;cursor:pointer;
+  transition:all 0.25s ease;background:var(--chip-bg);color:var(--text-secondary);
   border:1px solid transparent;user-select:none;font-weight:500;
 }
 .chip:hover{border-color:var(--accent-light)}
-.chip.selected{
-  background:var(--accent);color:white;border-color:var(--accent);
-  font-weight:600;box-shadow:0 2px 8px rgba(181,98,63,0.3);
-}
-.clear-filters{
-  font-size:12px;color:var(--accent);font-weight:600;
-  text-decoration:none;cursor:pointer;padding:0 24px 12px;display:none;
-}
+.chip.selected{background:var(--accent);color:white;border-color:var(--accent);font-weight:600;box-shadow:0 2px 8px rgba(181,98,63,0.3)}
+.clear-filters{font-size:12px;color:var(--accent);font-weight:600;text-decoration:none;cursor:pointer;padding:0 24px 12px;display:none}
 .clear-filters.show{display:block}
 
 /* Results */
@@ -115,7 +131,7 @@ body{
   width:100%;aspect-ratio:3/4;border-radius:8px;
   background:var(--sepia-light);overflow:hidden;
   display:flex;align-items:center;justify-content:center;
-  box-shadow:var(--card-shadow);transition:transform 0.3s ease,box-shadow 0.3s ease;
+  box-shadow:var(--card-shadow);transition:transform 0.3s ease;
   border:1px solid rgba(212,196,168,0.3);
 }
 .card:active .card-image{transform:scale(0.97)}
@@ -124,33 +140,28 @@ body{
 .card-title{
   margin-top:10px;font-family:'Cormorant Garamond',serif;
   font-size:15px;font-weight:600;color:var(--text-primary);
-  letter-spacing:-0.2px;line-height:1.3;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
-.card-author{
-  margin-top:1px;font-size:11px;color:var(--warm-grey);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  font-weight:400;letter-spacing:0.3px;
-}
+.card-author{margin-top:1px;font-size:11px;color:var(--warm-grey);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:0.3px}
 
 /* Empty */
 .empty-state{display:none;flex-direction:column;align-items:center;justify-content:center;padding:80px 48px;text-align:center}
 .empty-state.show{display:flex}
 .empty-state .icon{font-size:56px;color:var(--sepia-dark);opacity:0.4}
-.empty-state h2{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;margin-top:24px;letter-spacing:1px}
+.empty-state h2{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:500;margin-top:24px}
 .empty-state p{font-size:13px;color:var(--warm-grey);margin-top:8px;line-height:1.6}
 
 /* FAB */
 .fab{
   position:fixed;bottom:28px;right:calc(50% - 212px);
   width:58px;height:58px;border-radius:16px;
-  background:linear-gradient(135deg,var(--accent) 0%,var(--accent-dark) 100%);
-  color:white;border:none;font-size:26px;cursor:pointer;
-  box-shadow:0 4px 24px rgba(181,98,63,0.4);
+  background:linear-gradient(135deg,var(--terracotta) 0%,var(--terracotta-dark) 100%);
+  color:#FFF5E6;border:none;font-size:26px;cursor:pointer;
+  box-shadow:0 4px 24px rgba(160,82,45,0.4);
   display:flex;align-items:center;justify-content:center;
-  transition:transform 0.2s ease,box-shadow 0.2s ease;z-index:100;
+  transition:transform 0.2s ease;z-index:100;
 }
-.fab:active{transform:scale(0.9);box-shadow:0 2px 12px rgba(181,98,63,0.3)}
+.fab:active{transform:scale(0.9)}
 @media(max-width:528px){.fab{right:24px}}
 
 /* Detail */
@@ -161,36 +172,31 @@ body{
 }
 .detail-overlay.open{transform:translateX(0)}
 .detail-image{
-  width:100%;height:42vh;background:var(--dark);
+  width:100%;height:42vh;background:var(--leather);
   display:flex;align-items:center;justify-content:center;
   overflow:hidden;position:relative;
 }
 .detail-image img{width:100%;height:100%;object-fit:cover}
-.detail-image .placeholder{font-size:56px;color:rgba(212,196,168,0.15)}
+.detail-image .placeholder{font-size:56px;color:rgba(212,196,168,0.12)}
 .detail-back,.detail-edit,.detail-delete{
-  position:absolute;top:52px;width:38px;height:38px;
-  border-radius:50%;background:rgba(28,26,23,0.5);backdrop-filter:blur(8px);
+  position:absolute;top:52px;width:38px;height:38px;border-radius:50%;
+  background:rgba(28,26,23,0.5);backdrop-filter:blur(8px);
   display:flex;align-items:center;justify-content:center;
-  cursor:pointer;border:none;font-size:20px;color:var(--sepia-light);
-  transition:background 0.2s;
+  cursor:pointer;border:none;font-size:20px;color:var(--sepia-light);transition:background 0.2s;
 }
 .detail-back:active,.detail-edit:active,.detail-delete:active{background:rgba(28,26,23,0.8)}
 .detail-back{left:16px}.detail-edit{right:56px}.detail-delete{right:16px}
 .detail-content{padding:28px 24px 40px;max-width:480px;margin:0 auto}
-.detail-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;letter-spacing:-0.3px;line-height:1.2}
-.detail-author{font-size:15px;color:var(--warm-grey);margin-top:6px;font-weight:400}
+.detail-title{font-family:'Cormorant Garamond',serif;font-size:30px;font-weight:600;line-height:1.2}
+.detail-author{font-size:15px;color:var(--warm-grey);margin-top:6px}
 .detail-year{font-size:13px;color:var(--text-tertiary);margin-top:2px}
 .value-card{
   margin-top:28px;padding:24px;
-  background:linear-gradient(135deg,var(--dark) 0%,var(--dark-mid) 100%);
-  border-radius:14px;color:white;border:1px solid rgba(212,196,168,0.1);
+  background:linear-gradient(135deg,var(--leather) 0%,var(--leather-mid) 100%);
+  border-radius:14px;color:white;border:1px solid rgba(197,165,90,0.15);
 }
 .value-label{font-size:10px;font-weight:600;color:rgba(212,196,168,0.4);letter-spacing:2.5px}
-.value-amount{
-  font-family:'Cormorant Garamond',serif;
-  font-size:32px;font-weight:700;letter-spacing:-0.5px;margin-top:6px;
-  color:var(--accent-light);
-}
+.value-amount{font-family:'Cormorant Garamond',serif;font-size:32px;font-weight:700;margin-top:6px;color:var(--gold-light)}
 .detail-row{display:flex;justify-content:space-between;padding:16px 0}
 .detail-row-label{font-size:13px;color:var(--warm-grey)}
 .detail-row-value{font-size:13px;font-weight:600;color:var(--text-primary)}
@@ -209,54 +215,41 @@ body{
   border-bottom:1px solid var(--border-light);
 }
 .form-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--text-primary);padding:8px}
-.form-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600;letter-spacing:0.5px}
+.form-title{font-family:'Cormorant Garamond',serif;font-size:20px;font-weight:600}
 .form-save{
-  background:var(--accent);border:none;font-size:14px;font-weight:600;
-  color:white;cursor:pointer;padding:10px 22px;border-radius:10px;
-  font-family:inherit;transition:background 0.2s;
+  background:linear-gradient(135deg,var(--terracotta) 0%,var(--terracotta-dark) 100%);
+  border:none;font-size:14px;font-weight:600;color:white;cursor:pointer;
+  padding:10px 22px;border-radius:10px;font-family:inherit;
 }
-.form-save:active{background:var(--accent-dark)}
+.form-save:active{opacity:0.85}
 .form-save:disabled{background:var(--border);color:var(--text-tertiary)}
 .form-body{padding:24px 24px 48px;max-width:480px;margin:0 auto}
-
 .image-picker{
   width:100%;height:220px;border-radius:14px;
   background:var(--sepia-light);border:2px dashed var(--sepia-dark);
-  display:flex;flex-direction:column;align-items:center;
-  justify-content:center;cursor:pointer;overflow:hidden;position:relative;
-  transition:border-color 0.2s;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;overflow:hidden;position:relative;transition:border-color 0.2s;
 }
-.image-picker:active{border-color:var(--accent)}
+.image-picker:active{border-color:var(--terracotta)}
 .image-picker img{width:100%;height:100%;object-fit:cover}
 .image-picker .placeholder-content{text-align:center}
-.image-picker .placeholder-content .icon{font-size:36px;color:var(--accent);opacity:0.5}
+.image-picker .placeholder-content .icon{font-size:36px;color:var(--terracotta);opacity:0.5}
 .image-picker .placeholder-content p{font-size:14px;color:var(--warm-grey);margin-top:8px;font-weight:500}
 .image-picker .placeholder-content small{font-size:12px;color:var(--text-tertiary)}
 .image-picker-input{display:none}
-
 .field{margin-top:24px}
 .field-label{font-size:11px;font-weight:600;color:var(--warm-grey);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
 .field input,.field select{
-  width:100%;padding:14px 16px;font-size:15px;
-  font-family:inherit;color:var(--text-primary);
-  background:var(--surface);border:1.5px solid var(--border);
-  border-radius:10px;outline:none;transition:border-color 0.2s;
-  appearance:none;-webkit-appearance:none;
+  width:100%;padding:14px 16px;font-size:15px;font-family:inherit;color:var(--text-primary);
+  background:var(--surface);border:1.5px solid var(--border);border-radius:10px;outline:none;
+  transition:border-color 0.2s;appearance:none;-webkit-appearance:none;
 }
-.field input:focus,.field select:focus{border-color:var(--accent)}
+.field input:focus,.field select:focus{border-color:var(--terracotta)}
 .field input::placeholder{color:var(--text-tertiary)}
-.field select{
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8279' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 14px center;padding-right:40px;
-}
+.field select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238A8279' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center;padding-right:40px}
 .field-row{display:flex;gap:14px}.field-row .field{flex:1}
 
-/* Dialog */
-.dialog-backdrop{
-  position:fixed;inset:0;background:rgba(28,26,23,0.6);z-index:400;
-  display:none;align-items:center;justify-content:center;padding:24px;
-  backdrop-filter:blur(4px);
-}
+.dialog-backdrop{position:fixed;inset:0;background:rgba(28,26,23,0.6);z-index:400;display:none;align-items:center;justify-content:center;padding:24px;backdrop-filter:blur(4px)}
 .dialog-backdrop.show{display:flex}
 .dialog{background:var(--surface);border-radius:16px;padding:28px;max-width:320px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,0.2)}
 .dialog h3{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:600}
@@ -266,10 +259,9 @@ body{
 .btn-cancel{color:var(--text-secondary)}
 .btn-delete{color:white;background:var(--error)}
 
-/* Snackbar */
 .snackbar{
   position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(80px);
-  background:var(--dark);color:var(--sepia-light);padding:14px 24px;
+  background:var(--leather);color:var(--sepia-light);padding:14px 24px;
   border-radius:12px;font-size:14px;z-index:500;font-weight:500;
   transition:transform 0.3s cubic-bezier(0.22,1,0.36,1);white-space:nowrap;
   box-shadow:0 4px 24px rgba(0,0,0,0.25);
@@ -280,22 +272,12 @@ body{
 <body>
   <div class="app">
     <div class="header">
-      <div class="header-logo">
-        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <!-- Easel base -->
-          <path d="M35 85L50 70L65 85" stroke="#E8DFD0" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-          <line x1="50" y1="70" x2="50" y2="55" stroke="#E8DFD0" stroke-width="2.5" stroke-linecap="round"/>
-          <!-- Frame -->
-          <rect x="28" y="18" width="44" height="37" rx="1" stroke="#E8DFD0" stroke-width="2.5"/>
-          <rect x="32" y="22" width="36" height="29" rx="0.5" stroke="#D4C4A8" stroke-width="1" opacity="0.5"/>
-          <!-- Swirl brush stroke -->
-          <path d="M38 45C38 45 42 28 50 32C58 36 44 42 52 38C60 34 62 25 58 22" stroke="#E8DFD0" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-          <!-- Star sparkle -->
-          <path d="M68 14L69.5 18L73 16L70 19L74 20.5L70 21L72 25L69 22L68 26L67 22L64 25L66 21L62 20.5L66 19L63 16L66.5 18Z" fill="#E8DFD0" opacity="0.8"/>
-        </svg>
+      <div class="logo-circle">
+        <span class="logo-g">G</span>
+        <span class="logo-name">Getty</span>
       </div>
-      <h1>Vernissage</h1>
-      <div class="subtitle" id="subtitle">Tu coleccion personal</div>
+      <h1>Getty</h1>
+      <div class="subtitle" id="subtitle">Coleccion Personal de Arte y Artesania</div>
     </div>
 
     <div class="search-wrapper">
@@ -324,7 +306,7 @@ body{
     <div class="empty-state" id="emptyCollection">
       <span class="material-icons-outlined icon">collections</span>
       <h2>Comienza tu coleccion</h2>
-      <p>Agrega tu primera obra de arte presionando el boton +</p>
+      <p>Agrega tu primera obra presionando el boton +</p>
     </div>
     <div class="empty-state" id="emptyResults">
       <span class="material-icons-outlined icon">search_off</span>
@@ -335,7 +317,6 @@ body{
     <button class="fab" onclick="openForm()"><span class="material-icons-outlined">add</span></button>
   </div>
 
-  <!-- Detail -->
   <div class="detail-overlay" id="detailOverlay">
     <div class="detail-image" id="detailImage">
       <button class="detail-back" onclick="closeDetail()"><span class="material-icons-outlined">arrow_back</span></button>
@@ -360,7 +341,6 @@ body{
     </div>
   </div>
 
-  <!-- Form -->
   <div class="form-overlay" id="formOverlay">
     <div class="form-header">
       <button class="form-close" onclick="closeForm()"><span class="material-icons-outlined">close</span></button>
@@ -392,18 +372,11 @@ body{
     </div>
   </div>
 
-  <!-- Delete Dialog -->
   <div class="dialog-backdrop" id="deleteDialog">
-    <div class="dialog">
-      <h3>Eliminar obra</h3>
-      <p id="deleteMsg"></p>
-      <div class="dialog-actions">
-        <button class="btn-cancel" onclick="hideDeleteDialog()">Cancelar</button>
-        <button class="btn-delete" onclick="confirmDelete()">Eliminar</button>
-      </div>
+    <div class="dialog"><h3>Eliminar obra</h3><p id="deleteMsg"></p>
+      <div class="dialog-actions"><button class="btn-cancel" onclick="hideDeleteDialog()">Cancelar</button><button class="btn-delete" onclick="confirmDelete()">Eliminar</button></div>
     </div>
   </div>
-
   <div class="snackbar" id="snackbar"></div>
 <script>
 let artworks=[
@@ -414,15 +387,12 @@ let artworks=[
   {id:'5',title:'Las dos Fridas',author:'Frida Kahlo',modality:'Pintura',technique:'Oleo',movement:'Surrealismo',year:1939,value:35000000,image:null},
   {id:'6',title:'Composicion VIII',author:'Wassily Kandinsky',modality:'Pintura',technique:'Oleo',movement:'Arte Abstracto',year:1923,value:40000000,image:null},
 ];
-const saved=localStorage.getItem('vernissage_collection');
+const saved=localStorage.getItem('getty_collection');
 if(saved){try{artworks=JSON.parse(saved)}catch(e){}}
-
 let currentId=null,editingId=null,searchQuery='',filterAuthor=null,filterTechnique=null,filterModality=null,tempImage=null;
-
-function save(){localStorage.setItem('vernissage_collection',JSON.stringify(artworks))}
+function save(){localStorage.setItem('getty_collection',JSON.stringify(artworks))}
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2)}
 function formatCurrency(n){return '$'+n.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}
-
 function getFiltered(){
   return artworks.filter(a=>{
     if(searchQuery){const q=searchQuery.toLowerCase();
@@ -437,10 +407,9 @@ function getFiltered(){
 }
 function getDistinct(key){return[...new Set(artworks.map(a=>a[key]))].sort()}
 function hasActiveFilters(){return filterAuthor||filterTechnique||filterModality}
-
 function render(){
   const filtered=getFiltered(),total=artworks.length;
-  document.getElementById('subtitle').textContent=total===0?'Tu coleccion personal':`${total} ${total===1?'obra':'obras'} en tu coleccion`;
+  document.getElementById('subtitle').textContent=total===0?'Coleccion Personal de Arte y Artesania':`${total} ${total===1?'obra':'obras'} en tu coleccion`;
   document.getElementById('resultsCount').textContent=(filtered.length!==total&&total>0)?`${filtered.length} resultado${filtered.length===1?'':'s'}`:'';
   const grid=document.getElementById('grid');grid.innerHTML='';
   filtered.forEach(a=>{
@@ -455,7 +424,6 @@ function render(){
   document.getElementById('filterDot').className='dot'+(hasActiveFilters()?' show':'');
   document.getElementById('clearFilters').className='clear-filters'+(hasActiveFilters()?' show':'');
 }
-
 function renderFilterChips(){
   renderChipSection('authorFilters','Autor',getDistinct('author'),filterAuthor,v=>{filterAuthor=filterAuthor===v?null:v;render()});
   renderChipSection('techniqueFilters','Tecnica',getDistinct('technique'),filterTechnique,v=>{filterTechnique=filterTechnique===v?null:v;render()});
@@ -465,7 +433,6 @@ function renderChipSection(id,label,items,selected,onSelect){
   const el=document.getElementById(id);if(!items.length){el.innerHTML='';return}
   el.innerHTML=`<div class="filter-label">${label}</div><div class="chips-scroll">${items.map(item=>`<div class="chip${selected===item?' selected':''}" onclick="event.stopPropagation();(${onSelect.toString()})('${item.replace(/'/g,"\\'")}')">${item}</div>`).join('')}</div>`;
 }
-
 document.getElementById('searchInput').addEventListener('input',e=>{
   searchQuery=e.target.value;
   document.getElementById('searchClear').className='material-icons-outlined search-clear'+(searchQuery?' show':'');
@@ -474,7 +441,6 @@ document.getElementById('searchInput').addEventListener('input',e=>{
 function clearSearch(){document.getElementById('searchInput').value='';searchQuery='';render();document.getElementById('searchClear').className='material-icons-outlined search-clear'}
 function toggleFilters(){document.getElementById('filtersPanel').classList.toggle('open')}
 function clearAllFilters(){filterAuthor=null;filterTechnique=null;filterModality=null;searchQuery='';document.getElementById('searchInput').value='';document.getElementById('searchClear').className='material-icons-outlined search-clear';render()}
-
 function openDetail(id){
   currentId=id;const a=artworks.find(x=>x.id===id);if(!a)return;
   const di=document.getElementById('detailImage');
@@ -491,11 +457,9 @@ function openDetail(id){
   document.getElementById('detailOverlay').classList.add('open');
 }
 function closeDetail(){document.getElementById('detailOverlay').classList.remove('open');currentId=null}
-
 function showDeleteDialog(){const a=artworks.find(x=>x.id===currentId);document.getElementById('deleteMsg').textContent='Estas seguro de eliminar "'+(a?.title)+'"? Esta accion no se puede deshacer.';document.getElementById('deleteDialog').classList.add('show')}
 function hideDeleteDialog(){document.getElementById('deleteDialog').classList.remove('show')}
 function confirmDelete(){artworks=artworks.filter(a=>a.id!==currentId);save();hideDeleteDialog();closeDetail();render();showSnackbar('Obra eliminada')}
-
 function openForm(id){
   editingId=id||null;tempImage=null;
   document.getElementById('formTitle').textContent=id?'Editar obra':'Nueva obra';
@@ -515,7 +479,6 @@ function openForm(id){
 }
 function closeForm(){document.getElementById('formOverlay').classList.remove('open');editingId=null}
 function editCurrent(){closeDetail();setTimeout(()=>openForm(currentId),400)}
-
 function handleImageSelect(e){
   const file=e.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -528,7 +491,6 @@ function handleImageSelect(e){
   };
   reader.readAsDataURL(file);
 }
-
 function saveArtwork(){
   const title=document.getElementById('fTitle').value.trim(),
     author=document.getElementById('fAuthor').value.trim(),
@@ -548,9 +510,7 @@ function saveArtwork(){
   }
   save();closeForm();render();
 }
-
 function showSnackbar(msg){const sb=document.getElementById('snackbar');sb.textContent=msg;sb.classList.add('show');setTimeout(()=>sb.classList.remove('show'),2500)}
-
 render();
 </script>
 </body>
