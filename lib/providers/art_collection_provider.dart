@@ -95,6 +95,10 @@ class ArtCollectionProvider extends ChangeNotifier {
       } else {
         _artworks = await _localDb.getAllArtworks();
       }
+
+      // Purge legacy seed artworks (Goya) from all sources
+      await _purgeLegacySeedData();
+
       _refreshFilterOptions();
       _applyFilters();
       refreshFeatured();
@@ -103,6 +107,37 @@ class ArtCollectionProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Remove legacy seed artworks that should no longer exist.
+  Future<void> _purgeLegacySeedData() async {
+    final toRemove = _artworks.where((a) =>
+        a.title == 'Perro semihundido' && a.author == 'Francisco de Goya',
+    ).toList();
+
+    for (final artwork in toRemove) {
+      debugPrint('Purging legacy seed artwork: ${artwork.title}');
+      // Delete from Firestore
+      if (_useFirebase && _uid != null) {
+        try {
+          await _firestoreService.deleteArtwork(_uid!, artwork.id);
+          await _storageService.deleteWorkFiles(_uid!, artwork.id);
+        } catch (e) {
+          debugPrint('Firestore purge failed: $e');
+        }
+      }
+      // Delete from local storage
+      try {
+        await _localDb.deleteArtwork(artwork.id);
+      } catch (e) {
+        debugPrint('Local purge failed: $e');
+      }
+    }
+
+    if (toRemove.isNotEmpty) {
+      _artworks.removeWhere((a) =>
+          a.title == 'Perro semihundido' && a.author == 'Francisco de Goya');
     }
   }
 
