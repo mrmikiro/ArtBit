@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -7,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/artwork.dart';
 import '../providers/art_collection_provider.dart';
 import '../utils/constants.dart';
+import '../widgets/artwork_image.dart';
 
 class ArtworkFormScreen extends StatefulWidget {
   final ArtWork? artwork;
@@ -23,13 +22,16 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
 
   late TextEditingController _titleController;
   late TextEditingController _authorController;
+  late TextEditingController _modalityController;
   late TextEditingController _techniqueController;
+  late TextEditingController _movementController;
+  late TextEditingController _purchasePlaceController;
+  late TextEditingController _communityController;
   late TextEditingController _valueController;
   late TextEditingController _yearController;
 
-  String? _selectedModality;
-  String? _selectedMovement;
   String? _imagePath;
+  Uint8List? _webImageBytes;
   bool _isSaving = false;
 
   bool get _isEditing => widget.artwork != null;
@@ -40,15 +42,17 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     final a = widget.artwork;
     _titleController = TextEditingController(text: a?.title ?? '');
     _authorController = TextEditingController(text: a?.author ?? '');
+    _modalityController = TextEditingController(text: a?.modality ?? '');
     _techniqueController = TextEditingController(text: a?.technique ?? '');
+    _movementController = TextEditingController(text: a?.movement ?? '');
+    _purchasePlaceController = TextEditingController(text: a?.purchasePlace ?? '');
+    _communityController = TextEditingController(text: a?.community ?? '');
     _valueController = TextEditingController(
       text: a != null ? a.value.toStringAsFixed(2) : '',
     );
     _yearController = TextEditingController(
       text: a?.year?.toString() ?? '',
     );
-    _selectedModality = a?.modality;
-    _selectedMovement = a?.movement;
     _imagePath = a?.imagePath;
   }
 
@@ -56,7 +60,11 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
   void dispose() {
     _titleController.dispose();
     _authorController.dispose();
+    _modalityController.dispose();
     _techniqueController.dispose();
+    _movementController.dispose();
+    _purchasePlaceController.dispose();
+    _communityController.dispose();
     _valueController.dispose();
     _yearController.dispose();
     super.dispose();
@@ -71,8 +79,11 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         imageQuality: 85,
       );
       if (image != null) {
+        // Read bytes for web reliability
+        final bytes = await image.readAsBytes();
         setState(() {
           _imagePath = image.path;
+          _webImageBytes = bytes;
         });
       }
     } catch (e) {
@@ -147,6 +158,7 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
                     Navigator.pop(ctx);
                     setState(() {
                       _imagePath = null;
+                      _webImageBytes = null;
                     });
                   },
                 ),
@@ -197,15 +209,6 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
 
   Future<void> _saveArtwork() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedModality == null || _selectedMovement == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Completa todos los campos requeridos'),
-          backgroundColor: AppColors.textPrimary,
-        ),
-      );
-      return;
-    }
 
     setState(() => _isSaving = true);
 
@@ -216,9 +219,11 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         id: widget.artwork?.id,
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
-        modality: _selectedModality!,
+        modality: _modalityController.text.trim(),
         technique: _techniqueController.text.trim(),
-        movement: _selectedMovement!,
+        movement: _movementController.text.trim(),
+        purchasePlace: _purchasePlaceController.text.trim(),
+        community: _communityController.text.trim(),
         year: _yearController.text.isNotEmpty
             ? int.tryParse(_yearController.text.trim())
             : null,
@@ -228,9 +233,9 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       );
 
       if (_isEditing) {
-        await provider.updateArtwork(artwork);
+        await provider.updateArtwork(artwork, imageBytes: _webImageBytes);
       } else {
-        await provider.addArtwork(artwork);
+        await provider.addArtwork(artwork, imageBytes: _webImageBytes);
       }
 
       if (mounted) {
@@ -336,33 +341,53 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
 
             const SizedBox(height: AppSpacing.lg),
 
-            // Modality dropdown
-            _buildDropdown(
+            // Modality autocomplete
+            _buildAutocompleteField(
+              controller: _modalityController,
               label: 'Modalidad',
-              value: _selectedModality,
-              items: ArtworkOptions.modalities,
-              onChanged: (v) => setState(() => _selectedModality = v),
-            ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Technique
-            _buildTextField(
-              controller: _techniqueController,
-              label: 'Técnica',
-              hint: 'Ej: Óleo sobre lienzo',
+              hint: 'Ej: Pintura, Escultura...',
+              suggestions: ArtworkOptions.modalities,
               validator: (v) =>
                   v == null || v.trim().isEmpty ? 'Campo requerido' : null,
             ),
 
             const SizedBox(height: AppSpacing.lg),
 
-            // Movement dropdown
-            _buildDropdown(
-              label: 'Corriente Artística',
-              value: _selectedMovement,
-              items: ArtworkOptions.movements,
-              onChanged: (v) => setState(() => _selectedMovement = v),
+            // Technique autocomplete
+            _buildAutocompleteField(
+              controller: _techniqueController,
+              label: 'Técnica',
+              hint: 'Ej: Óleo sobre lienzo',
+              suggestions: ArtworkOptions.techniques,
+              validator: (v) =>
+                  v == null || v.trim().isEmpty ? 'Campo requerido' : null,
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // Movement (free text)
+            _buildTextField(
+              controller: _movementController,
+              label: 'Corriente artística',
+              hint: 'Ej: Impresionismo, Arte Contemporáneo...',
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // Purchase place
+            _buildTextField(
+              controller: _purchasePlaceController,
+              label: 'Lugar de compra',
+              hint: 'Ej: Galería Roma, Mercado de Coyoacán...',
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // Community
+            _buildTextField(
+              controller: _communityController,
+              label: 'Comunidad',
+              hint: 'Ej: Oaxaca, San Cristóbal...',
             ),
 
             const SizedBox(height: AppSpacing.lg),
@@ -438,18 +463,17 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  kIsWeb
-                      ? Image.network(
-                          _imagePath!,
+                  // Show from bytes if available (freshly picked), otherwise from path
+                  _webImageBytes != null
+                      ? Image.memory(
+                          _webImageBytes!,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) =>
                               _buildImagePlaceholder(),
                         )
-                      : Image.file(
-                          File(_imagePath!),
+                      : ArtworkImage(
+                          imagePath: _imagePath,
                           fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildImagePlaceholder(),
                         ),
                   Positioned(
                     bottom: AppSpacing.sm,
@@ -460,7 +484,7 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.textPrimary.withOpacity(0.75),
+                        color: AppColors.textPrimary.withValues(alpha: 0.75),
                         borderRadius:
                             BorderRadius.circular(AppBorderRadius.md),
                       ),
@@ -607,11 +631,12 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     );
   }
 
-  Widget _buildDropdown({
+  Widget _buildAutocompleteField({
+    required TextEditingController controller,
     required String label,
-    required String? value,
-    required List<String> items,
-    required ValueChanged<String?> onChanged,
+    String? hint,
+    required List<String> suggestions,
+    String? Function(String?)? validator,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,64 +651,126 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        DropdownButtonFormField<String>(
-          value: value,
-          isExpanded: true,
-          icon: const Icon(
-            Icons.keyboard_arrow_down,
-            color: AppColors.textTertiary,
-          ),
-          style: const TextStyle(
-            fontSize: 16,
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w400,
-          ),
-          decoration: InputDecoration(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 14,
-            ),
-            filled: true,
-            fillColor: AppColors.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.border,
-                width: 0.5,
+        Autocomplete<String>(
+          initialValue: controller.value,
+          optionsBuilder: (textEditingValue) {
+            if (textEditingValue.text.isEmpty) {
+              return suggestions;
+            }
+            final q = textEditingValue.text.toLowerCase();
+            return suggestions
+                .where((s) => s.toLowerCase().contains(q))
+                .toList();
+          },
+          onSelected: (value) {
+            controller.text = value;
+          },
+          optionsViewBuilder: (context, onSelected, options) {
+            return Align(
+              alignment: Alignment.topLeft,
+              child: Material(
+                elevation: 4,
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 200),
+                  child: ListView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (context, index) {
+                      final option = options.elementAt(index);
+                      return InkWell(
+                        onTap: () => onSelected(option),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpacing.md,
+                            vertical: 12,
+                          ),
+                          child: Text(
+                            option,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
               ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.border,
-                width: 0.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.textPrimary,
-                width: 1.0,
-              ),
-            ),
-          ),
-          hint: Text(
-            'Seleccionar $label',
-            style: const TextStyle(
-              color: AppColors.textTertiary,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-          validator: (v) => v == null ? 'Campo requerido' : null,
-          items: items.map((item) {
-            return DropdownMenuItem<String>(
-              value: item,
-              child: Text(item),
             );
-          }).toList(),
-          onChanged: onChanged,
-          dropdownColor: AppColors.surface,
-          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          },
+          fieldViewBuilder:
+              (context, textController, focusNode, onFieldSubmitted) {
+            // Sync with our controller
+            textController.text = controller.text;
+            textController.addListener(() {
+              if (controller.text != textController.text) {
+                controller.text = textController.text;
+              }
+            });
+            return TextFormField(
+              controller: textController,
+              focusNode: focusNode,
+              validator: validator,
+              style: const TextStyle(
+                fontSize: 16,
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.w400,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: const TextStyle(
+                  fontSize: 16,
+                  color: AppColors.textTertiary,
+                  fontWeight: FontWeight.w400,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md,
+                  vertical: 14,
+                ),
+                filled: true,
+                fillColor: AppColors.surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                    width: 0.5,
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  borderSide: const BorderSide(
+                    color: AppColors.border,
+                    width: 0.5,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  borderSide: const BorderSide(
+                    color: AppColors.textPrimary,
+                    width: 1.0,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  borderSide: const BorderSide(
+                    color: AppColors.error,
+                    width: 0.5,
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                  borderSide: const BorderSide(
+                    color: AppColors.error,
+                    width: 1.0,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );

@@ -1,29 +1,39 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import '../models/artwork.dart';
+import '../services/firestore_service.dart';
+import '../services/storage_service.dart';
 import '../utils/storage_helper.dart';
 
 class ArtCollectionProvider extends ChangeNotifier {
-  final StorageHelper _dbHelper = StorageHelper();
+  final StorageHelper _localDb = StorageHelper();
+  final FirestoreService _firestoreService = FirestoreService();
+  final StorageService _storageService = StorageService();
+
+  String? _uid;
+  bool _useFirebase = false;
 
   List<ArtWork> _artworks = [];
   List<ArtWork> _filteredArtworks = [];
+  List<ArtWork> _featuredArtworks = [];
   bool _isLoading = false;
   String _searchQuery = '';
   String? _filterAuthor;
   String? _filterTechnique;
   String? _filterModality;
 
-  // Distinct values for filter chips
   List<String> _authors = [];
   List<String> _techniques = [];
   List<String> _modalities = [];
+  List<String> _movements = [];
 
   // Getters
   List<ArtWork> get artworks => _filteredArtworks;
   List<ArtWork> get allArtworks => _artworks;
+  List<ArtWork> get featuredArtworks => _featuredArtworks;
   bool get isLoading => _isLoading;
   String get searchQuery => _searchQuery;
   String? get filterAuthor => _filterAuthor;
@@ -32,6 +42,7 @@ class ArtCollectionProvider extends ChangeNotifier {
   List<String> get authors => _authors;
   List<String> get techniques => _techniques;
   List<String> get modalities => _modalities;
+  List<String> get movements => _movements;
   bool get hasActiveFilters =>
       _filterAuthor != null ||
       _filterTechnique != null ||
@@ -42,15 +53,44 @@ class ArtCollectionProvider extends ChangeNotifier {
   double get totalCollectionValue =>
       _artworks.fold(0.0, (sum, artwork) => sum + artwork.value);
 
-  /// Load all artworks from database
-  Future<void> loadArtworks() async {
+  List<ArtWork> getWorksByAuthor(String author) =>
+      _artworks.where((a) => a.author == author).toList();
+
+  List<ArtWork> getWorksByModality(String modality) =>
+      _artworks.where((a) => a.modality == modality).toList();
+
+  List<ArtWork> getWorksByTechnique(String technique) =>
+      _artworks.where((a) => a.technique == technique).toList();
+
+  List<ArtWork> getWorksByMovement(String movement) =>
+      _artworks.where((a) => a.movement == movement).toList();
+
+  void refreshFeatured() {
+    if (_artworks.length <= 4) {
+      _featuredArtworks = List.from(_artworks);
+    } else {
+      final shuffled = List<ArtWork>.from(_artworks)..shuffle(Random());
+      _featuredArtworks = shuffled.take(4).toList();
+    }
+    notifyListeners();
+  }
+
+  /// Load artworks — if uid is provided, use Firebase; otherwise use local storage
+  Future<void> loadArtworks({String? uid}) async {
+    _uid = uid;
+    _useFirebase = uid != null;
     _isLoading = true;
     notifyListeners();
 
     try {
-      _artworks = await _dbHelper.getAllArtworks();
-      await _refreshFilterOptions();
+      if (_useFirebase) {
+        _artworks = await _firestoreService.getAllArtworks(uid!);
+      } else {
+        _artworks = await _localDb.getAllArtworks();
+      }
+      _refreshFilterOptions();
       _applyFilters();
+      refreshFeatured();
     } catch (e) {
       debugPrint('Error loading artworks: $e');
     } finally {
@@ -59,15 +99,27 @@ class ArtCollectionProvider extends ChangeNotifier {
     }
   }
 
-  /// Add a new artwork
-  Future<void> addArtwork(ArtWork artwork) async {
+  /// Add a new artwork.
+  /// [imageBytes] can be provided for reliable web uploads.
+  Future<void> addArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
     try {
-      // If there's an image, copy it to app directory
-      final savedArtwork = await _saveImageIfNeeded(artwork);
-      await _dbHelper.insertArtwork(savedArtwork);
+      ArtWork savedArtwork = artwork;
+
+      if (_useFirebase && _uid != null) {
+        savedArtwork = await _uploadImageIfNeeded(
+          artwork,
+          imageBytes: imageBytes,
+        );
+        await _firestoreService.insertArtwork(_uid!, savedArtwork);
+      } else {
+        savedArtwork = await _saveImageLocally(artwork);
+        await _localDb.insertArtwork(savedArtwork);
+      }
+
       _artworks.insert(0, savedArtwork);
-      await _refreshFilterOptions();
+      _refreshFilterOptions();
       _applyFilters();
+      refreshFeatured();
       notifyListeners();
     } catch (e) {
       debugPrint('Error adding artwork: $e');
@@ -75,18 +127,30 @@ class ArtCollectionProvider extends ChangeNotifier {
     }
   }
 
-  /// Update an existing artwork
-  Future<void> updateArtwork(ArtWork artwork) async {
+  /// Update an existing artwork.
+  /// [imageBytes] can be provided for reliable web uploads.
+  Future<void> updateArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
     try {
-      final savedArtwork = await _saveImageIfNeeded(artwork);
-      await _dbHelper.updateArtwork(savedArtwork);
+      ArtWork savedArtwork = artwork;
+
+      if (_useFirebase && _uid != null) {
+        savedArtwork = await _uploadImageIfNeeded(
+          artwork,
+          imageBytes: imageBytes,
+        );
+        await _firestoreService.updateArtwork(_uid!, savedArtwork);
+      } else {
+        savedArtwork = await _saveImageLocally(artwork);
+        await _localDb.updateArtwork(savedArtwork);
+      }
 
       final index = _artworks.indexWhere((a) => a.id == savedArtwork.id);
       if (index != -1) {
         _artworks[index] = savedArtwork;
       }
-      await _refreshFilterOptions();
+      _refreshFilterOptions();
       _applyFilters();
+      refreshFeatured();
       notifyListeners();
     } catch (e) {
       debugPrint('Error updating artwork: $e');
@@ -97,19 +161,24 @@ class ArtCollectionProvider extends ChangeNotifier {
   /// Delete an artwork
   Future<void> deleteArtwork(String id) async {
     try {
-      // Find the artwork to delete its image
-      final artwork = _artworks.firstWhere((a) => a.id == id);
-      if (artwork.imagePath != null) {
-        final imageFile = File(artwork.imagePath!);
-        if (await imageFile.exists()) {
-          await imageFile.delete();
+      if (_useFirebase && _uid != null) {
+        await _firestoreService.deleteArtwork(_uid!, id);
+        await _storageService.deleteWorkFiles(_uid!, id);
+      } else {
+        final artwork = _artworks.firstWhere((a) => a.id == id);
+        if (!kIsWeb && artwork.imagePath != null) {
+          final imageFile = File(artwork.imagePath!);
+          if (await imageFile.exists()) {
+            await imageFile.delete();
+          }
         }
+        await _localDb.deleteArtwork(id);
       }
 
-      await _dbHelper.deleteArtwork(id);
       _artworks.removeWhere((a) => a.id == id);
-      await _refreshFilterOptions();
+      _refreshFilterOptions();
       _applyFilters();
+      refreshFeatured();
       notifyListeners();
     } catch (e) {
       debugPrint('Error deleting artwork: $e');
@@ -117,35 +186,30 @@ class ArtCollectionProvider extends ChangeNotifier {
     }
   }
 
-  /// Set search query
   void setSearchQuery(String query) {
     _searchQuery = query;
     _applyFilters();
     notifyListeners();
   }
 
-  /// Set filter by author
   void setFilterAuthor(String? author) {
     _filterAuthor = (_filterAuthor == author) ? null : author;
     _applyFilters();
     notifyListeners();
   }
 
-  /// Set filter by technique
   void setFilterTechnique(String? technique) {
     _filterTechnique = (_filterTechnique == technique) ? null : technique;
     _applyFilters();
     notifyListeners();
   }
 
-  /// Set filter by modality
   void setFilterModality(String? modality) {
     _filterModality = (_filterModality == modality) ? null : modality;
     _applyFilters();
     notifyListeners();
   }
 
-  /// Clear all filters
   void clearFilters() {
     _searchQuery = '';
     _filterAuthor = null;
@@ -155,10 +219,8 @@ class ArtCollectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Apply all active filters
   void _applyFilters() {
     _filteredArtworks = _artworks.where((artwork) {
-      // Text search
       if (_searchQuery.isNotEmpty) {
         final query = _searchQuery.toLowerCase();
         final matchesSearch = artwork.title.toLowerCase().contains(query) ||
@@ -168,45 +230,61 @@ class ArtCollectionProvider extends ChangeNotifier {
             artwork.modality.toLowerCase().contains(query);
         if (!matchesSearch) return false;
       }
-
-      // Filter by author
-      if (_filterAuthor != null && artwork.author != _filterAuthor) {
-        return false;
-      }
-
-      // Filter by technique
-      if (_filterTechnique != null && artwork.technique != _filterTechnique) {
-        return false;
-      }
-
-      // Filter by modality
-      if (_filterModality != null && artwork.modality != _filterModality) {
-        return false;
-      }
-
+      if (_filterAuthor != null && artwork.author != _filterAuthor) return false;
+      if (_filterTechnique != null && artwork.technique != _filterTechnique) return false;
+      if (_filterModality != null && artwork.modality != _filterModality) return false;
       return true;
     }).toList();
   }
 
-  /// Refresh the distinct filter options from DB
-  Future<void> _refreshFilterOptions() async {
-    _authors = await _dbHelper.getDistinctAuthors();
-    _techniques = await _dbHelper.getDistinctTechniques();
-    _modalities = await _dbHelper.getDistinctModalities();
+  void _refreshFilterOptions() {
+    _authors = _artworks.map((a) => a.author).toSet().toList()..sort();
+    _techniques = _artworks.map((a) => a.technique).toSet().toList()..sort();
+    _modalities = _artworks.map((a) => a.modality).toSet().toList()..sort();
+    _movements = _artworks.map((a) => a.movement).toSet().toList()..sort();
   }
 
-  /// Save image to app's documents directory if it's from a temp location
-  Future<ArtWork> _saveImageIfNeeded(ArtWork artwork) async {
-    if (artwork.imagePath == null) return artwork;
+  /// Upload image to Firebase Storage if needed, using bytes when available (web).
+  Future<ArtWork> _uploadImageIfNeeded(
+    ArtWork artwork, {
+    Uint8List? imageBytes,
+  }) async {
+    if (artwork.imagePath == null || artwork.imagePath!.isEmpty) {
+      return artwork;
+    }
+    // Already an HTTP URL — no upload needed
+    if (artwork.imagePath!.startsWith('http')) {
+      return artwork;
+    }
 
-    // On web, just keep the path as-is (blob/data URL)
+    String imageUrl;
+    if (imageBytes != null) {
+      // Use bytes directly — most reliable for web
+      imageUrl = await _storageService.uploadWorkImageBytes(
+        uid: _uid!,
+        workId: artwork.id,
+        bytes: imageBytes,
+      );
+    } else {
+      // Upload from file path (mobile)
+      imageUrl = await _storageService.uploadWorkImage(
+        uid: _uid!,
+        workId: artwork.id,
+        filePath: artwork.imagePath!,
+      );
+    }
+    return artwork.copyWith(imagePath: imageUrl);
+  }
+
+  Future<ArtWork> _saveImageLocally(ArtWork artwork) async {
+    if (artwork.imagePath == null) return artwork;
     if (kIsWeb) return artwork;
 
     final file = File(artwork.imagePath!);
     if (!await file.exists()) return artwork;
 
     final appDir = await getApplicationDocumentsDirectory();
-    final imagesDir = Directory('${appDir.path}/artbit_images');
+    final imagesDir = Directory('${appDir.path}/vault_images');
     if (!await imagesDir.exists()) {
       await imagesDir.create(recursive: true);
     }
@@ -214,22 +292,10 @@ class ArtCollectionProvider extends ChangeNotifier {
     final extension = p.extension(artwork.imagePath!);
     final newPath = '${imagesDir.path}/${artwork.id}$extension';
 
-    // Only copy if the file isn't already in our directory
     if (artwork.imagePath != newPath) {
       await file.copy(newPath);
     }
 
-    return ArtWork(
-      id: artwork.id,
-      title: artwork.title,
-      author: artwork.author,
-      modality: artwork.modality,
-      technique: artwork.technique,
-      movement: artwork.movement,
-      year: artwork.year,
-      imagePath: newPath,
-      value: artwork.value,
-      createdAt: artwork.createdAt,
-    );
+    return artwork.copyWith(imagePath: newPath);
   }
 }

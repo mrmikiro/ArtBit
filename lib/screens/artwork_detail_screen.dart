@@ -1,11 +1,11 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import '../models/artwork.dart';
 import '../providers/art_collection_provider.dart';
 import '../utils/constants.dart';
+import '../utils/nav_helper.dart';
+import '../widgets/artwork_image.dart';
 import 'artwork_form_screen.dart';
 
 class ArtworkDetailScreen extends StatelessWidget {
@@ -83,27 +83,26 @@ class ArtworkDetailScreen extends StatelessWidget {
   }
 
   void _navigateToEdit(BuildContext context) {
+    navigateWithProvider(
+      context,
+      ArtworkFormScreen(artwork: artwork),
+      slideRight: true,
+    );
+  }
+
+  void _openImageViewer(BuildContext context) {
+    if (artwork.imagePath == null || artwork.imagePath!.isEmpty) return;
     Navigator.of(context).push(
       PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 350),
-        reverseTransitionDuration: const Duration(milliseconds: 300),
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            ArtworkFormScreen(artwork: artwork),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          final curved = CurvedAnimation(
-            parent: animation,
-            curve: Curves.easeOutCubic,
-          );
-          return SlideTransition(
-            position: Tween<Offset>(
-              begin: const Offset(1, 0),
-              end: Offset.zero,
-            ).animate(curved),
-            child: FadeTransition(
-              opacity: curved,
-              child: child,
-            ),
-          );
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 250),
+        pageBuilder: (_, __, ___) =>
+            _FullScreenImageViewer(imagePath: artwork.imagePath!),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
         },
       ),
     );
@@ -136,25 +135,16 @@ class ArtworkDetailScreen extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Hero(
-                tag: 'artwork_${artwork.id}',
-                child: artwork.imagePath != null
-                    ? (kIsWeb
-                        ? Image.network(
-                            artwork.imagePath!,
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) =>
-                                _buildImagePlaceholder(),
-                          )
-                        : Image.file(
-                            File(artwork.imagePath!),
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                            errorBuilder: (_, __, ___) =>
-                                _buildImagePlaceholder(),
-                          ))
-                    : _buildImagePlaceholder(),
+              background: GestureDetector(
+                onTap: () => _openImageViewer(context),
+                child: Hero(
+                  tag: 'artwork_${artwork.id}',
+                  child: ArtworkImage(
+                    imagePath: artwork.imagePath,
+                    fit: BoxFit.contain,
+                    iconSize: 64,
+                  ),
+                ),
               ),
             ),
           ),
@@ -252,8 +242,18 @@ class ArtworkDetailScreen extends StatelessWidget {
                   _buildDetailRow('Modalidad', artwork.modality),
                   _buildDivider(),
                   _buildDetailRow('Técnica', artwork.technique),
-                  _buildDivider(),
-                  _buildDetailRow('Corriente', artwork.movement),
+                  if (artwork.movement.isNotEmpty) ...[
+                    _buildDivider(),
+                    _buildDetailRow('Corriente', artwork.movement),
+                  ],
+                  if (artwork.purchasePlace.isNotEmpty) ...[
+                    _buildDivider(),
+                    _buildDetailRow('Lugar de compra', artwork.purchasePlace),
+                  ],
+                  if (artwork.community.isNotEmpty) ...[
+                    _buildDivider(),
+                    _buildDetailRow('Comunidad', artwork.community),
+                  ],
 
                   const SizedBox(height: AppSpacing.xxl),
                 ],
@@ -272,7 +272,7 @@ class ArtworkDetailScreen extends StatelessWidget {
         onTap: () => Navigator.of(context).pop(),
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.85),
+            color: AppColors.background.withValues(alpha: 0.85),
             shape: BoxShape.circle,
           ),
           padding: const EdgeInsets.all(8),
@@ -296,7 +296,7 @@ class ArtworkDetailScreen extends StatelessWidget {
         onTap: onTap,
         child: Container(
           decoration: BoxDecoration(
-            color: AppColors.background.withOpacity(0.85),
+            color: AppColors.background.withValues(alpha: 0.85),
             shape: BoxShape.circle,
           ),
           padding: const EdgeInsets.all(8),
@@ -305,19 +305,6 @@ class ArtworkDetailScreen extends StatelessWidget {
             size: 20,
             color: AppColors.textPrimary,
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImagePlaceholder() {
-    return Container(
-      color: AppColors.borderLight,
-      child: const Center(
-        child: Icon(
-          Icons.image_outlined,
-          size: 64,
-          color: AppColors.textTertiary,
         ),
       ),
     );
@@ -355,6 +342,129 @@ class ArtworkDetailScreen extends StatelessWidget {
       height: 0.5,
       thickness: 0.5,
       color: AppColors.divider,
+    );
+  }
+}
+
+/// Fullscreen image viewer with zoom and pan support.
+class _FullScreenImageViewer extends StatefulWidget {
+  final String imagePath;
+
+  const _FullScreenImageViewer({required this.imagePath});
+
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
+    with SingleTickerProviderStateMixin {
+  final TransformationController _transformController =
+      TransformationController();
+  late AnimationController _animController;
+  Animation<Matrix4>? _animation;
+  TapDownDetails? _doubleTapDetails;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 250),
+    )..addListener(() {
+        if (_animation != null) {
+          _transformController.value = _animation!.value;
+        }
+      });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    _transformController.dispose();
+    super.dispose();
+  }
+
+  void _handleDoubleTap() {
+    final position = _doubleTapDetails?.localPosition ?? Offset.zero;
+    final currentScale = _transformController.value.getMaxScaleOnAxis();
+
+    Matrix4 endMatrix;
+    if (currentScale > 1.1) {
+      // Zoom out to fit
+      endMatrix = Matrix4.identity();
+    } else {
+      // Zoom in to 2.5x centered on tap
+      endMatrix = Matrix4.identity()
+        ..translate(position.dx * -1.5, position.dy * -1.5)
+        ..scale(2.5);
+    }
+
+    _animation = Matrix4Tween(
+      begin: _transformController.value,
+      end: endMatrix,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+    _animController.forward(from: 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          // Dismiss on background tap
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(color: Colors.transparent),
+          ),
+
+          // Interactive image
+          Center(
+            child: GestureDetector(
+              onDoubleTapDown: (details) => _doubleTapDetails = details,
+              onDoubleTap: _handleDoubleTap,
+              child: InteractiveViewer(
+                transformationController: _transformController,
+                minScale: 0.5,
+                maxScale: 5.0,
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width,
+                  height: MediaQuery.of(context).size.height,
+                  child: ArtworkImage(
+                    imagePath: widget.imagePath,
+                    fit: BoxFit.contain,
+                    iconSize: 64,
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          // Close button
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            right: 16,
+            child: GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  size: 22,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
