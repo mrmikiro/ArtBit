@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
@@ -75,7 +76,7 @@ class ArtCollectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load artworks — if uid is provided, use Firebase; otherwise use local storage
+  /// Load artworks — tries Firebase first, falls back to local cache
   Future<void> loadArtworks({String? uid}) async {
     _uid = uid;
     _useFirebase = uid != null;
@@ -84,7 +85,13 @@ class ArtCollectionProvider extends ChangeNotifier {
 
     try {
       if (_useFirebase) {
-        _artworks = await _firestoreService.getAllArtworks(uid!);
+        try {
+          _artworks = await _firestoreService.getAllArtworks(uid!);
+          debugPrint('Loaded ${_artworks.length} artworks from Firestore');
+        } catch (e) {
+          debugPrint('Firestore load failed: $e — falling back to local');
+          _artworks = await _localDb.getAllArtworks();
+        }
       } else {
         _artworks = await _localDb.getAllArtworks();
       }
@@ -100,20 +107,30 @@ class ArtCollectionProvider extends ChangeNotifier {
   }
 
   /// Add a new artwork.
-  /// [imageBytes] can be provided for reliable web uploads.
+  /// [imageBytes] should be provided when picking images on web.
   Future<void> addArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
     try {
       ArtWork savedArtwork = artwork;
 
+      // Persist image
+      savedArtwork = await _persistImage(savedArtwork, imageBytes: imageBytes);
+
+      // Save to Firebase
       if (_useFirebase && _uid != null) {
-        savedArtwork = await _uploadImageIfNeeded(
-          artwork,
-          imageBytes: imageBytes,
-        );
-        await _firestoreService.insertArtwork(_uid!, savedArtwork);
-      } else {
-        savedArtwork = await _saveImageLocally(artwork);
+        try {
+          await _firestoreService.insertArtwork(_uid!, savedArtwork);
+          debugPrint('Artwork saved to Firestore: ${savedArtwork.id}');
+        } catch (e) {
+          debugPrint('Firestore insert failed: $e');
+          // Continue — local save is the backup
+        }
+      }
+
+      // Always save locally as cache/backup
+      try {
         await _localDb.insertArtwork(savedArtwork);
+      } catch (e) {
+        debugPrint('Local insert failed: $e');
       }
 
       _artworks.insert(0, savedArtwork);
@@ -128,20 +145,29 @@ class ArtCollectionProvider extends ChangeNotifier {
   }
 
   /// Update an existing artwork.
-  /// [imageBytes] can be provided for reliable web uploads.
+  /// [imageBytes] should be provided when picking new images on web.
   Future<void> updateArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
     try {
       ArtWork savedArtwork = artwork;
 
+      // Persist image
+      savedArtwork = await _persistImage(savedArtwork, imageBytes: imageBytes);
+
+      // Save to Firebase
       if (_useFirebase && _uid != null) {
-        savedArtwork = await _uploadImageIfNeeded(
-          artwork,
-          imageBytes: imageBytes,
-        );
-        await _firestoreService.updateArtwork(_uid!, savedArtwork);
-      } else {
-        savedArtwork = await _saveImageLocally(artwork);
+        try {
+          await _firestoreService.updateArtwork(_uid!, savedArtwork);
+          debugPrint('Artwork updated in Firestore: ${savedArtwork.id}');
+        } catch (e) {
+          debugPrint('Firestore update failed: $e');
+        }
+      }
+
+      // Always save locally
+      try {
         await _localDb.updateArtwork(savedArtwork);
+      } catch (e) {
+        debugPrint('Local update failed: $e');
       }
 
       final index = _artworks.indexWhere((a) => a.id == savedArtwork.id);
@@ -162,17 +188,32 @@ class ArtCollectionProvider extends ChangeNotifier {
   Future<void> deleteArtwork(String id) async {
     try {
       if (_useFirebase && _uid != null) {
-        await _firestoreService.deleteArtwork(_uid!, id);
-        await _storageService.deleteWorkFiles(_uid!, id);
-      } else {
-        final artwork = _artworks.firstWhere((a) => a.id == id);
-        if (!kIsWeb && artwork.imagePath != null) {
-          final imageFile = File(artwork.imagePath!);
-          if (await imageFile.exists()) {
-            await imageFile.delete();
-          }
+        try {
+          await _firestoreService.deleteArtwork(_uid!, id);
+          await _storageService.deleteWorkFiles(_uid!, id);
+        } catch (e) {
+          debugPrint('Firestore delete failed: $e');
         }
+      }
+
+      // Always delete locally too
+      if (!kIsWeb) {
+        try {
+          final artwork = _artworks.firstWhere((a) => a.id == id);
+          if (artwork.imagePath != null &&
+              !artwork.imagePath!.startsWith('http') &&
+              !artwork.imagePath!.startsWith('data:')) {
+            final imageFile = File(artwork.imagePath!);
+            if (await imageFile.exists()) {
+              await imageFile.delete();
+            }
+          }
+        } catch (_) {}
+      }
+      try {
         await _localDb.deleteArtwork(id);
+      } catch (e) {
+        debugPrint('Local delete failed: $e');
       }
 
       _artworks.removeWhere((a) => a.id == id);
@@ -244,41 +285,63 @@ class ArtCollectionProvider extends ChangeNotifier {
     _movements = _artworks.map((a) => a.movement).toSet().toList()..sort();
   }
 
-  /// Upload image to Firebase Storage if needed, using bytes when available (web).
-  Future<ArtWork> _uploadImageIfNeeded(
+  /// Persist the artwork image: upload to Firebase Storage and/or
+  /// encode as base64 data URI for web local storage.
+  Future<ArtWork> _persistImage(
     ArtWork artwork, {
     Uint8List? imageBytes,
   }) async {
     if (artwork.imagePath == null || artwork.imagePath!.isEmpty) {
       return artwork;
     }
-    // Already an HTTP URL — no upload needed
-    if (artwork.imagePath!.startsWith('http')) {
+    // Already a persisted URL or data URI — no processing needed
+    if (artwork.imagePath!.startsWith('http') ||
+        artwork.imagePath!.startsWith('data:')) {
       return artwork;
     }
 
-    String imageUrl;
-    if (imageBytes != null) {
-      // Use bytes directly — most reliable for web
-      imageUrl = await _storageService.uploadWorkImageBytes(
-        uid: _uid!,
-        workId: artwork.id,
-        bytes: imageBytes,
-      );
-    } else {
-      // Upload from file path (mobile)
-      imageUrl = await _storageService.uploadWorkImage(
-        uid: _uid!,
-        workId: artwork.id,
-        filePath: artwork.imagePath!,
-      );
+    // Try Firebase Storage upload first
+    if (_useFirebase && _uid != null) {
+      try {
+        String imageUrl;
+        if (imageBytes != null) {
+          imageUrl = await _storageService.uploadWorkImageBytes(
+            uid: _uid!,
+            workId: artwork.id,
+            bytes: imageBytes,
+          );
+        } else {
+          imageUrl = await _storageService.uploadWorkImage(
+            uid: _uid!,
+            workId: artwork.id,
+            filePath: artwork.imagePath!,
+          );
+        }
+        debugPrint('Image uploaded to Firebase Storage');
+        return artwork.copyWith(imagePath: imageUrl);
+      } catch (e) {
+        debugPrint('Firebase Storage upload failed: $e');
+        // Fall through to local persistence
+      }
     }
-    return artwork.copyWith(imagePath: imageUrl);
+
+    // Web: encode as base64 data URI (persists in SharedPreferences)
+    if (kIsWeb) {
+      if (imageBytes != null) {
+        final b64 = base64Encode(imageBytes);
+        final dataUri = 'data:image/jpeg;base64,$b64';
+        return artwork.copyWith(imagePath: dataUri);
+      }
+      // No bytes and no Firebase — keep the path as-is (may be temporary)
+      return artwork;
+    }
+
+    // Mobile: copy file to app documents
+    return _copyImageToDocuments(artwork);
   }
 
-  Future<ArtWork> _saveImageLocally(ArtWork artwork) async {
+  Future<ArtWork> _copyImageToDocuments(ArtWork artwork) async {
     if (artwork.imagePath == null) return artwork;
-    if (kIsWeb) return artwork;
 
     final file = File(artwork.imagePath!);
     if (!await file.exists()) return artwork;
