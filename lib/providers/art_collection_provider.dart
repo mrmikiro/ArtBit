@@ -320,8 +320,9 @@ class ArtCollectionProvider extends ChangeNotifier {
     _movements = _artworks.map((a) => a.movement).toSet().toList()..sort();
   }
 
-  /// Persist the artwork image: upload to Firebase Storage and/or
-  /// encode as base64 data URI for web local storage.
+  /// Persist the artwork image.
+  /// On web: always encode as base64 data URI (guaranteed to work, no CORS).
+  /// On mobile: upload to Firebase Storage or copy to local documents.
   Future<ArtWork> _persistImage(
     ArtWork artwork, {
     Uint8List? imageBytes,
@@ -329,13 +330,44 @@ class ArtCollectionProvider extends ChangeNotifier {
     if (artwork.imagePath == null || artwork.imagePath!.isEmpty) {
       return artwork;
     }
-    // Already a persisted URL or data URI — no processing needed
-    if (artwork.imagePath!.startsWith('http') ||
-        artwork.imagePath!.startsWith('data:')) {
+    // Already a data URI — already persisted for web
+    if (artwork.imagePath!.startsWith('data:')) {
       return artwork;
     }
 
-    // Try Firebase Storage upload first
+    // === WEB: always use base64 data URI (no CORS issues, always works) ===
+    if (kIsWeb) {
+      if (imageBytes != null && imageBytes.isNotEmpty) {
+        final b64 = base64Encode(imageBytes);
+        final dataUri = 'data:image/jpeg;base64,$b64';
+        debugPrint('Image encoded as base64 data URI (${imageBytes.length} bytes)');
+
+        // Also try Firebase Storage upload in background for cross-device sync
+        if (_useFirebase && _uid != null) {
+          _storageService.uploadWorkImageBytes(
+            uid: _uid!,
+            workId: artwork.id,
+            bytes: imageBytes,
+          ).then((_) => debugPrint('Background upload to Storage OK'))
+           .catchError((e) => debugPrint('Background upload failed: $e'));
+        }
+
+        return artwork.copyWith(imagePath: dataUri);
+      }
+      // Already an HTTP URL (from Firestore) — keep it
+      if (artwork.imagePath!.startsWith('http')) {
+        return artwork;
+      }
+      // No bytes available — can't persist on web
+      debugPrint('WARNING: No image bytes available for web persistence');
+      return artwork;
+    }
+
+    // === MOBILE: use Firebase Storage URL or local file ===
+    if (artwork.imagePath!.startsWith('http')) {
+      return artwork;
+    }
+
     if (_useFirebase && _uid != null) {
       try {
         String imageUrl;
@@ -356,22 +388,9 @@ class ArtCollectionProvider extends ChangeNotifier {
         return artwork.copyWith(imagePath: imageUrl);
       } catch (e) {
         debugPrint('Firebase Storage upload failed: $e');
-        // Fall through to local persistence
       }
     }
 
-    // Web: encode as base64 data URI (persists in SharedPreferences)
-    if (kIsWeb) {
-      if (imageBytes != null) {
-        final b64 = base64Encode(imageBytes);
-        final dataUri = 'data:image/jpeg;base64,$b64';
-        return artwork.copyWith(imagePath: dataUri);
-      }
-      // No bytes and no Firebase — keep the path as-is (may be temporary)
-      return artwork;
-    }
-
-    // Mobile: copy file to app documents
     return _copyImageToDocuments(artwork);
   }
 
