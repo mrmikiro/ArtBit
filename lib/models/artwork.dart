@@ -7,6 +7,8 @@ class ArtWork {
   final String modality;
   final String technique;
   final String movement;
+  final String purchasePlace;
+  final String community;
   final int? year;
   final String? imagePath;
   final double value;
@@ -18,7 +20,9 @@ class ArtWork {
     required this.author,
     required this.modality,
     required this.technique,
-    required this.movement,
+    this.movement = '',
+    this.purchasePlace = '',
+    this.community = '',
     this.year,
     this.imagePath,
     required this.value,
@@ -32,6 +36,8 @@ class ArtWork {
     String? modality,
     String? technique,
     String? movement,
+    String? purchasePlace,
+    String? community,
     int? year,
     String? imagePath,
     double? value,
@@ -43,6 +49,8 @@ class ArtWork {
       modality: modality ?? this.modality,
       technique: technique ?? this.technique,
       movement: movement ?? this.movement,
+      purchasePlace: purchasePlace ?? this.purchasePlace,
+      community: community ?? this.community,
       year: year ?? this.year,
       imagePath: imagePath ?? this.imagePath,
       value: value ?? this.value,
@@ -58,6 +66,8 @@ class ArtWork {
       'modality': modality,
       'technique': technique,
       'movement': movement,
+      'purchasePlace': purchasePlace,
+      'community': community,
       'year': year,
       'imagePath': imagePath,
       'value': value,
@@ -70,9 +80,11 @@ class ArtWork {
       id: map['id'] as String,
       title: map['title'] as String,
       author: map['author'] as String,
-      modality: map['modality'] as String,
-      technique: map['technique'] as String,
-      movement: map['movement'] as String,
+      modality: map['modality'] as String? ?? '',
+      technique: map['technique'] as String? ?? '',
+      movement: map['movement'] as String? ?? '',
+      purchasePlace: map['purchasePlace'] as String? ?? '',
+      community: map['community'] as String? ?? '',
       year: map['year'] as int?,
       imagePath: map['imagePath'] as String?,
       value: (map['value'] as num).toDouble(),
@@ -88,7 +100,6 @@ class ArtWork {
   int get hashCode => id.hashCode;
 }
 
-/// Predefined options for dropdowns
 class ArtworkOptions {
   static const List<String> modalities = [
     'Pintura',
@@ -119,23 +130,5 @@ class ArtworkOptions {
     'Madera',
     'Digital',
     'Mixta',
-  ];
-
-  static const List<String> movements = [
-    'Renacimiento',
-    'Barroco',
-    'Impresionismo',
-    'Expresionismo',
-    'Cubismo',
-    'Surrealismo',
-    'Art Déco',
-    'Pop Art',
-    'Minimalismo',
-    'Arte Abstracto',
-    'Arte Contemporáneo',
-    'Realismo',
-    'Romanticismo',
-    'Modernismo',
-    'Postmodernismo',
   ];
 }

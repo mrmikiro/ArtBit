@@ -1,40 +1,49 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'providers/art_collection_provider.dart';
-import 'screens/gallery_screen.dart';
+import 'firebase_options.dart';
+import 'screens/auth_wrapper.dart';
 import 'utils/constants.dart';
 
-void main() {
+bool firebaseInitialized = false;
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set system UI overlay style for the minimalist aesthetic
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    firebaseInitialized = true;
+    debugPrint('Firebase initialized successfully');
+  } catch (e) {
+    debugPrint('Firebase init failed: $e — running in local mode');
+    firebaseInitialized = false;
+  }
+
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppColors.background,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFF1C1B1A),
+      systemNavigationBarIconBrightness: Brightness.light,
     ),
   );
 
-  runApp(const ArtBitApp());
+  runApp(const VaultApp());
 }
 
-class ArtBitApp extends StatelessWidget {
-  const ArtBitApp({super.key});
+class VaultApp extends StatelessWidget {
+  const VaultApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => ArtCollectionProvider(),
-      child: MaterialApp(
-        title: 'ArtBit',
-        debugShowCheckedModeBanner: false,
-        theme: _buildTheme(),
-        home: const GalleryScreen(),
-      ),
+    return MaterialApp(
+      title: 'VAULT',
+      debugShowCheckedModeBanner: false,
+      theme: _buildTheme(),
+      home: const AuthWrapper(),
     );
   }
 
@@ -71,15 +80,16 @@ class ArtBitApp extends StatelessWidget {
         ),
       ),
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.accent,
         foregroundColor: Colors.white,
-        elevation: 2,
+        elevation: 0,
+        highlightElevation: 2,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.all(Radius.circular(16)),
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AppColors.accent,
         contentTextStyle: GoogleFonts.inter(
           fontSize: 14,
           color: Colors.white,
@@ -93,7 +103,7 @@ class ArtBitApp extends StatelessWidget {
         color: AppColors.divider,
         thickness: 0.5,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
