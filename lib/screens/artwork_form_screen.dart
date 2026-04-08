@@ -35,8 +35,11 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
   String? _country;
   String? _estadoMexico;
 
-  String? _imagePath;
-  Uint8List? _webImageBytes;
+  /// All image paths (persisted data URIs / HTTP URLs + new temp paths)
+  List<String> _imagePaths = [];
+  /// Bytes for newly picked images (maps to non-persisted entries in _imagePaths)
+  List<Uint8List> _newImageBytes = [];
+
   bool _isSaving = false;
 
   bool get _isEditing => widget.artwork != null;
@@ -59,9 +62,9 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     _yearController = TextEditingController(
       text: a?.year?.toString() ?? '',
     );
-    _imagePath = a?.imagePath;
 
     if (a != null) {
+      _imagePaths = List.from(a.imagePaths);
       _formato = a.formato.isNotEmpty ? a.formato : null;
       _rama = a.rama.isNotEmpty ? a.rama : null;
       _country = a.country.isNotEmpty ? a.country : null;
@@ -93,8 +96,8 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       if (image != null) {
         final bytes = await image.readAsBytes();
         setState(() {
-          _imagePath = image.path;
-          _webImageBytes = bytes;
+          _imagePaths.add(image.path);
+          _newImageBytes.add(bytes);
         });
       }
     } catch (e) {
@@ -107,6 +110,26 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         );
       }
     }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      final path = _imagePaths[index];
+      // If it's a new (non-persisted) image, also remove its bytes
+      final isPersisted = path.startsWith('data:') || path.startsWith('http');
+      if (!isPersisted) {
+        // Count how many non-persisted images are before this index
+        int bytesIdx = 0;
+        for (int i = 0; i < index; i++) {
+          final p = _imagePaths[i];
+          if (!p.startsWith('data:') && !p.startsWith('http')) bytesIdx++;
+        }
+        if (bytesIdx < _newImageBytes.length) {
+          _newImageBytes.removeAt(bytesIdx);
+        }
+      }
+      _imagePaths.removeAt(index);
+    });
   }
 
   void _showImageSourcePicker() {
@@ -125,8 +148,7 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 36,
-                height: 4,
+                width: 36, height: 4,
                 decoration: BoxDecoration(
                   color: AppColors.border,
                   borderRadius: BorderRadius.circular(2),
@@ -134,46 +156,21 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
               const Text(
-                'Seleccionar imagen',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
+                'Agregar imagen',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               ),
               const SizedBox(height: AppSpacing.lg),
               _buildImageOption(
                 icon: Icons.camera_alt_outlined,
                 label: 'Tomar fotografía',
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.camera);
-                },
+                onTap: () { Navigator.pop(ctx); _pickImage(ImageSource.camera); },
               ),
               const SizedBox(height: AppSpacing.sm),
               _buildImageOption(
                 icon: Icons.photo_library_outlined,
                 label: 'Seleccionar de galería',
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _pickImage(ImageSource.gallery);
-                },
+                onTap: () { Navigator.pop(ctx); _pickImage(ImageSource.gallery); },
               ),
-              if (_imagePath != null) ...[
-                const SizedBox(height: AppSpacing.sm),
-                _buildImageOption(
-                  icon: Icons.delete_outline,
-                  label: 'Eliminar imagen',
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    setState(() {
-                      _imagePath = null;
-                      _webImageBytes = null;
-                    });
-                  },
-                ),
-              ],
               const SizedBox(height: AppSpacing.md),
             ],
           ),
@@ -192,26 +189,13 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppBorderRadius.lg),
       child: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: AppSpacing.md,
-          horizontal: AppSpacing.md,
-        ),
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.md, horizontal: AppSpacing.md),
         child: Row(
           children: [
-            Icon(
-              icon,
-              size: 22,
-              color: isDestructive ? AppColors.error : AppColors.textSecondary,
-            ),
+            Icon(icon, size: 22, color: isDestructive ? AppColors.error : AppColors.textSecondary),
             const SizedBox(width: AppSpacing.md),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: isDestructive ? AppColors.error : AppColors.textPrimary,
-              ),
-            ),
+            Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w400,
+                color: isDestructive ? AppColors.error : AppColors.textPrimary)),
           ],
         ),
       ),
@@ -233,15 +217,12 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
   void _onCountryChanged(String? value) {
     setState(() {
       _country = value;
-      if (!_isMexico) {
-        _estadoMexico = null;
-      }
+      if (!_isMexico) _estadoMexico = null;
     });
   }
 
   Future<void> _saveArtwork() async {
     if (!_formKey.currentState!.validate()) return;
-
     setState(() => _isSaving = true);
 
     try {
@@ -260,35 +241,27 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         purchasePlace: _purchasePlaceController.text.trim(),
         comments: _commentsController.text.trim(),
         year: _yearController.text.isNotEmpty
-            ? int.tryParse(_yearController.text.trim())
-            : null,
-        imagePath: _imagePath,
+            ? int.tryParse(_yearController.text.trim()) : null,
+        imagePaths: _imagePaths,
         value: double.parse(_valueController.text.trim()),
         createdAt: widget.artwork?.createdAt,
       );
 
       if (_isEditing) {
-        await provider.updateArtwork(artwork, imageBytes: _webImageBytes);
+        await provider.updateArtwork(artwork, imageBytesList: _newImageBytes.isNotEmpty ? _newImageBytes : null);
       } else {
-        await provider.addArtwork(artwork, imageBytes: _webImageBytes);
+        await provider.addArtwork(artwork, imageBytesList: _newImageBytes.isNotEmpty ? _newImageBytes : null);
       }
 
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
+      if (mounted) Navigator.of(context).pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al guardar: $e'),
-            backgroundColor: AppColors.error,
-          ),
+          SnackBar(content: Text('Error al guardar: $e'), backgroundColor: AppColors.error),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -306,12 +279,8 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         ),
         title: Text(
           _isEditing ? 'Editar obra' : 'Nueva obra',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary,
-            letterSpacing: -0.3,
-          ),
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary, letterSpacing: -0.3),
         ),
         centerTitle: true,
         actions: [
@@ -320,22 +289,10 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
             child: TextButton(
               onPressed: _isSaving ? null : _saveArtwork,
               child: _isSaving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 1.5,
-                        color: AppColors.textSecondary,
-                      ),
-                    )
-                  : const Text(
-                      'Guardar',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
-                      ),
-                    ),
+                  ? const SizedBox(width: 18, height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.textSecondary))
+                  : const Text('Guardar',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
             ),
           ),
         ],
@@ -345,147 +302,79 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            // Image picker
-            _buildImagePicker(),
+            // Image gallery picker
+            _buildImageGallery(),
             const SizedBox(height: AppSpacing.xl),
 
-            // Title
-            _buildTextField(
-              controller: _titleController,
-              label: 'Título',
-              hint: 'Ej: La noche estrellada',
-              validator: _requiredValidator,
-            ),
+            _buildTextField(controller: _titleController, label: 'Título',
+                hint: 'Ej: La noche estrellada', validator: _requiredValidator),
             const SizedBox(height: AppSpacing.lg),
 
-            // Author
-            _buildTextField(
-              controller: _authorController,
-              label: 'Autor',
-              hint: 'Ej: Vincent van Gogh',
-              validator: _requiredValidator,
-            ),
+            _buildTextField(controller: _authorController, label: 'Autor',
+                hint: 'Ej: Vincent van Gogh', validator: _requiredValidator),
             const SizedBox(height: AppSpacing.lg),
 
-            // Formato (dropdown)
-            _buildDropdown(
-              label: 'Formato',
-              value: _formato,
-              items: ArtworkOptions.formatos,
-              onChanged: _onFormatoChanged,
-              validator: (v) => v == null ? 'Campo requerido' : null,
-            ),
+            _buildDropdown(label: 'Formato', value: _formato,
+                items: ArtworkOptions.formatos, onChanged: _onFormatoChanged,
+                validator: (v) => v == null ? 'Campo requerido' : null),
             const SizedBox(height: AppSpacing.lg),
 
-            // === Conditional: Arte popular fields ===
             if (_isArtePopular) ...[
-              // Rama
-              _buildDropdown(
-                label: 'Rama',
-                value: _rama,
-                items: ArtworkOptions.ramas,
-                onChanged: (v) => setState(() => _rama = v),
-                validator: (v) => v == null ? 'Campo requerido' : null,
-              ),
+              _buildDropdown(label: 'Rama', value: _rama,
+                  items: ArtworkOptions.ramas,
+                  onChanged: (v) => setState(() => _rama = v),
+                  validator: (v) => v == null ? 'Campo requerido' : null),
               const SizedBox(height: AppSpacing.lg),
 
-              // Comunidad (Country)
-              _buildDropdown(
-                label: 'Comunidad (País)',
-                value: _country,
-                items: ArtworkOptions.countries,
-                onChanged: _onCountryChanged,
-              ),
+              _buildDropdown(label: 'Comunidad (País)', value: _country,
+                  items: ArtworkOptions.countries, onChanged: _onCountryChanged),
               const SizedBox(height: AppSpacing.lg),
 
-              // Estado (only for México)
               if (_isMexico) ...[
-                _buildDropdown(
-                  label: 'Estado',
-                  value: _estadoMexico,
-                  items: ArtworkOptions.estadosMexico,
-                  onChanged: (v) => setState(() => _estadoMexico = v),
-                ),
+                _buildDropdown(label: 'Estado', value: _estadoMexico,
+                    items: ArtworkOptions.estadosMexico,
+                    onChanged: (v) => setState(() => _estadoMexico = v)),
                 const SizedBox(height: AppSpacing.lg),
               ],
 
-              // Localidad (free text, any country)
               if (_country != null && _country!.isNotEmpty) ...[
-                _buildTextField(
-                  controller: _localityController,
-                  label: 'Localidad',
-                  hint: 'Ej: San Bartolo Coyotepec',
-                ),
+                _buildTextField(controller: _localityController,
+                    label: 'Localidad', hint: 'Ej: San Bartolo Coyotepec'),
                 const SizedBox(height: AppSpacing.lg),
               ],
             ],
 
-            // === Shared fields (always visible) ===
-
-            // Technique
-            _buildTextField(
-              controller: _techniqueController,
-              label: 'Técnica',
-              hint: 'Ej: Óleo sobre lienzo, Barro negro...',
-            ),
+            _buildTextField(controller: _techniqueController, label: 'Técnica',
+                hint: 'Ej: Óleo sobre lienzo, Barro negro...'),
             const SizedBox(height: AppSpacing.lg),
 
-            // Purchase place
-            _buildTextField(
-              controller: _purchasePlaceController,
-              label: 'Lugar de compra',
-              hint: 'Ej: Galería Roma, Mercado de Coyoacán...',
-            ),
+            _buildTextField(controller: _purchasePlaceController,
+                label: 'Lugar de compra', hint: 'Ej: Galería Roma...'),
             const SizedBox(height: AppSpacing.lg),
 
-            // Year and Value in a row
             Row(
               children: [
-                Expanded(
-                  flex: 2,
-                  child: _buildTextField(
-                    controller: _yearController,
-                    label: 'Año',
-                    hint: 'Ej: 1889',
+                Expanded(flex: 2, child: _buildTextField(
+                    controller: _yearController, label: 'Año', hint: 'Ej: 1889',
                     keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(4),
-                    ],
-                  ),
-                ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(4)])),
                 const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  flex: 3,
-                  child: _buildTextField(
-                    controller: _valueController,
-                    label: 'Valor (\$)',
-                    hint: '0.00',
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: [
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d+\.?\d{0,2}'),
-                      ),
-                    ],
+                Expanded(flex: 3, child: _buildTextField(
+                    controller: _valueController, label: 'Valor (\$)', hint: '0.00',
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Campo requerido';
                       if (double.tryParse(v.trim()) == null) return 'Valor inválido';
                       return null;
-                    },
-                  ),
-                ),
+                    })),
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Comments
-            _buildTextField(
-              controller: _commentsController,
-              label: 'Comentarios',
-              hint: 'Notas adicionales sobre la obra...',
-              maxLines: 3,
-            ),
+            _buildTextField(controller: _commentsController, label: 'Comentarios',
+                hint: 'Notas adicionales sobre la obra...', maxLines: 3),
 
             const SizedBox(height: AppSpacing.xxl),
           ],
@@ -497,65 +386,122 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
   String? _requiredValidator(String? v) =>
       v == null || v.trim().isEmpty ? 'Campo requerido' : null;
 
-  // ─── Image picker ───
+  // ─── Multi-image gallery ───
 
-  Widget _buildImagePicker() {
+  Widget _buildImageGallery() {
+    return SizedBox(
+      height: 180,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: _imagePaths.length + 1, // +1 for "add" button
+        itemBuilder: (context, index) {
+          if (index == _imagePaths.length) {
+            return _buildAddImageButton();
+          }
+          return _buildImageTile(index);
+        },
+      ),
+    );
+  }
+
+  Widget _buildAddImageButton() {
     return GestureDetector(
       onTap: _showImageSourcePicker,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        height: 220,
-        width: double.infinity,
+      child: Container(
+        width: 140,
+        height: 180,
+        margin: EdgeInsets.only(left: _imagePaths.isEmpty ? 0 : AppSpacing.sm),
         decoration: BoxDecoration(
           color: AppColors.chipBackground,
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
           border: Border.all(color: AppColors.border, width: 0.5),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: _imagePath != null
-            ? Stack(
-                fit: StackFit.expand,
-                children: [
-                  _webImageBytes != null
-                      ? Image.memory(_webImageBytes!, fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => _buildImagePlaceholder())
-                      : ArtworkImage(imagePath: _imagePath, fit: BoxFit.cover),
-                  Positioned(
-                    bottom: AppSpacing.sm,
-                    right: AppSpacing.sm,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.textPrimary.withValues(alpha: 0.75),
-                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.edit, size: 14, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text('Cambiar', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : _buildImagePlaceholder(),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.add_photo_alternate_outlined, size: 36, color: AppColors.textTertiary),
+            SizedBox(height: AppSpacing.sm),
+            Text('Agregar foto', style: TextStyle(fontSize: 13, color: AppColors.textTertiary, fontWeight: FontWeight.w400)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildImagePlaceholder() {
-    return const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildImageTile(int index) {
+    final path = _imagePaths[index];
+    final isPersisted = path.startsWith('data:') || path.startsWith('http') || path.startsWith('assets/');
+
+    // Find bytes for non-persisted images
+    Uint8List? bytes;
+    if (!isPersisted) {
+      int bytesIdx = 0;
+      for (int i = 0; i < index; i++) {
+        final p = _imagePaths[i];
+        if (!p.startsWith('data:') && !p.startsWith('http') && !p.startsWith('assets/')) bytesIdx++;
+      }
+      if (bytesIdx < _newImageBytes.length) bytes = _newImageBytes[bytesIdx];
+    }
+
+    return Stack(
       children: [
-        Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.textTertiary),
-        SizedBox(height: AppSpacing.sm),
-        Text('Agregar fotografía', style: TextStyle(fontSize: 14, color: AppColors.textTertiary, fontWeight: FontWeight.w400)),
-        SizedBox(height: 2),
-        Text('Cámara o galería', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
+        Container(
+          width: 140,
+          height: 180,
+          margin: EdgeInsets.only(right: AppSpacing.sm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+            border: Border.all(color: AppColors.border, width: 0.5),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: bytes != null
+              ? Image.memory(bytes, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => _buildPlaceholder())
+              : ArtworkImage(imagePath: path, fit: BoxFit.cover),
+        ),
+        // Remove button
+        Positioned(
+          top: 6,
+          right: AppSpacing.sm + 6,
+          child: GestureDetector(
+            onTap: () => _removeImage(index),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.black54,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, size: 16, color: Colors.white),
+            ),
+          ),
+        ),
+        // Counter badge
+        if (_imagePaths.length > 1)
+          Positioned(
+            bottom: 8,
+            left: 8,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.black54,
+                borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+              ),
+              child: Text(
+                '${index + 1}/${_imagePaths.length}',
+                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildPlaceholder() {
+    return Container(
+      color: AppColors.chipBackground,
+      child: const Center(
+        child: Icon(Icons.image_outlined, size: 32, color: AppColors.textTertiary),
+      ),
     );
   }
 
@@ -573,19 +519,13 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
+        Text(label.toUpperCase(), style: const TextStyle(
             fontSize: 11, fontWeight: FontWeight.w600,
-            color: AppColors.textTertiary, letterSpacing: 1.2,
-          ),
-        ),
+            color: AppColors.textTertiary, letterSpacing: 1.2)),
         const SizedBox(height: AppSpacing.sm),
         TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          inputFormatters: inputFormatters,
-          validator: validator,
+          controller: controller, keyboardType: keyboardType,
+          inputFormatters: inputFormatters, validator: validator,
           maxLines: maxLines,
           style: const TextStyle(fontSize: 16, color: AppColors.textPrimary, fontWeight: FontWeight.w400),
           decoration: _inputDecoration(hint),
@@ -604,13 +544,9 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label.toUpperCase(),
-          style: const TextStyle(
+        Text(label.toUpperCase(), style: const TextStyle(
             fontSize: 11, fontWeight: FontWeight.w600,
-            color: AppColors.textTertiary, letterSpacing: 1.2,
-          ),
-        ),
+            color: AppColors.textTertiary, letterSpacing: 1.2)),
         const SizedBox(height: AppSpacing.sm),
         DropdownButtonFormField<String>(
           value: items.contains(value) ? value : null,
@@ -634,28 +570,17 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       hintText: hint,
       hintStyle: const TextStyle(fontSize: 16, color: AppColors.textTertiary, fontWeight: FontWeight.w400),
       contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
-      filled: true,
-      fillColor: AppColors.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: AppColors.border, width: 0.5),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: AppColors.border, width: 0.5),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: AppColors.textPrimary, width: 1.0),
-      ),
-      errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: AppColors.error, width: 0.5),
-      ),
-      focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppBorderRadius.md),
-        borderSide: const BorderSide(color: AppColors.error, width: 1.0),
-      ),
+      filled: true, fillColor: AppColors.surface,
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: const BorderSide(color: AppColors.border, width: 0.5)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: const BorderSide(color: AppColors.border, width: 0.5)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: const BorderSide(color: AppColors.textPrimary, width: 1.0)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: const BorderSide(color: AppColors.error, width: 0.5)),
+      focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(AppBorderRadius.md),
+          borderSide: const BorderSide(color: AppColors.error, width: 1.0)),
     );
   }
 }

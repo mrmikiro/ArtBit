@@ -13,7 +13,7 @@ class ArtWork {
   final String purchasePlace;
   final String comments;
   final int? year;
-  final String? imagePath;
+  final List<String> imagePaths;
   final double value;
   final DateTime createdAt;
 
@@ -30,13 +30,23 @@ class ArtWork {
     this.purchasePlace = '',
     this.comments = '',
     this.year,
-    this.imagePath,
+    List<String>? imagePaths,
+    // Legacy single image support
+    String? imagePath,
     required this.value,
     DateTime? createdAt,
   })  : id = id ?? const Uuid().v4(),
+        imagePaths = imagePaths ??
+            (imagePath != null && imagePath.isNotEmpty ? [imagePath] : []),
         createdAt = createdAt ?? DateTime.now();
 
   bool get isArtePopular => formato == 'Arte popular';
+
+  /// First image path (for thumbnails), or null if no images
+  String? get imagePath => imagePaths.isNotEmpty ? imagePaths.first : null;
+
+  /// Whether this artwork has any images
+  bool get hasImages => imagePaths.isNotEmpty;
 
   ArtWork copyWith({
     String? title,
@@ -50,7 +60,7 @@ class ArtWork {
     String? purchasePlace,
     String? comments,
     int? year,
-    String? imagePath,
+    List<String>? imagePaths,
     double? value,
   }) {
     return ArtWork(
@@ -66,7 +76,7 @@ class ArtWork {
       purchasePlace: purchasePlace ?? this.purchasePlace,
       comments: comments ?? this.comments,
       year: year ?? this.year,
-      imagePath: imagePath ?? this.imagePath,
+      imagePaths: imagePaths ?? this.imagePaths,
       value: value ?? this.value,
       createdAt: createdAt,
     );
@@ -78,7 +88,6 @@ class ArtWork {
       'title': title,
       'author': author,
       'formato': formato,
-      // Backwards compat: also write as modality for existing queries
       'modality': formato,
       'technique': technique,
       'rama': rama,
@@ -88,6 +97,8 @@ class ArtWork {
       'purchasePlace': purchasePlace,
       'comments': comments,
       'year': year,
+      'imagePaths': imagePaths,
+      // Backwards compat: keep single imagePath for old readers
       'imagePath': imagePath,
       'value': value,
       'createdAt': createdAt.toIso8601String(),
@@ -95,11 +106,19 @@ class ArtWork {
   }
 
   factory ArtWork.fromMap(Map<String, dynamic> map) {
+    // Read imagePaths list first, fall back to single imagePath
+    List<String> paths = [];
+    if (map['imagePaths'] != null) {
+      paths = (map['imagePaths'] as List).cast<String>();
+    } else if (map['imagePath'] != null &&
+        (map['imagePath'] as String).isNotEmpty) {
+      paths = [map['imagePath'] as String];
+    }
+
     return ArtWork(
       id: map['id'] as String,
       title: map['title'] as String,
       author: map['author'] as String,
-      // Read formato first, fall back to modality for old data
       formato: map['formato'] as String? ??
           map['modality'] as String? ??
           '',
@@ -113,7 +132,7 @@ class ArtWork {
           map['movement'] as String? ??
           '',
       year: map['year'] as int?,
-      imagePath: map['imagePath'] as String?,
+      imagePaths: paths,
       value: (map['value'] as num).toDouble(),
       createdAt: DateTime.parse(map['createdAt'] as String),
     );
@@ -177,14 +196,11 @@ class ArtworkOptions {
   ];
 
   static const List<String> countries = [
-    // México primero
     'México',
-    // Latinoamérica
     'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica',
     'Cuba', 'Ecuador', 'El Salvador', 'Guatemala', 'Haití', 'Honduras',
     'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'Puerto Rico',
     'República Dominicana', 'Uruguay', 'Venezuela',
-    // Resto del mundo (alfabético)
     'Alemania', 'Australia', 'Austria', 'Bélgica', 'Canadá', 'China',
     'Corea del Sur', 'Dinamarca', 'Egipto', 'España', 'Estados Unidos',
     'Filipinas', 'Francia', 'Grecia', 'India', 'Indonesia', 'Irlanda',

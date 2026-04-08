@@ -173,13 +173,13 @@ class ArtCollectionProvider extends ChangeNotifier {
   }
 
   /// Add a new artwork.
-  /// [imageBytes] should be provided when picking images on web.
-  Future<void> addArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
+  /// [imageBytesList] — bytes for each new image picked on web.
+  Future<void> addArtwork(ArtWork artwork, {List<Uint8List>? imageBytesList}) async {
     try {
       ArtWork savedArtwork = artwork;
 
-      // Persist image
-      savedArtwork = await _persistImage(savedArtwork, imageBytes: imageBytes);
+      // Persist images
+      savedArtwork = await _persistImages(savedArtwork, imageBytesList: imageBytesList);
 
       // Save to Firebase
       if (_useFirebase && _uid != null) {
@@ -211,13 +211,13 @@ class ArtCollectionProvider extends ChangeNotifier {
   }
 
   /// Update an existing artwork.
-  /// [imageBytes] should be provided when picking new images on web.
-  Future<void> updateArtwork(ArtWork artwork, {Uint8List? imageBytes}) async {
+  /// [imageBytesList] — bytes for each new image picked on web.
+  Future<void> updateArtwork(ArtWork artwork, {List<Uint8List>? imageBytesList}) async {
     try {
       ArtWork savedArtwork = artwork;
 
-      // Persist image
-      savedArtwork = await _persistImage(savedArtwork, imageBytes: imageBytes);
+      // Persist images
+      savedArtwork = await _persistImages(savedArtwork, imageBytesList: imageBytesList);
 
       // Save to Firebase
       if (_useFirebase && _uid != null) {
@@ -350,99 +350,76 @@ class ArtCollectionProvider extends ChangeNotifier {
     _formatos = _artworks.map((a) => a.formato).where((f) => f.isNotEmpty).toSet().toList()..sort();
   }
 
-  /// Persist the artwork image.
-  /// On web: always encode as base64 data URI (guaranteed to work, no CORS).
-  /// On mobile: upload to Firebase Storage or copy to local documents.
-  Future<ArtWork> _persistImage(
+  /// Persist all artwork images.
+  /// [imageBytesList] contains bytes for newly picked images (index matches
+  /// the position in artwork.imagePaths that are NOT yet persisted).
+  Future<ArtWork> _persistImages(
     ArtWork artwork, {
-    Uint8List? imageBytes,
+    List<Uint8List>? imageBytesList,
   }) async {
-    if (artwork.imagePath == null || artwork.imagePath!.isEmpty) {
-      return artwork;
-    }
-    // Already a data URI — already persisted for web
-    if (artwork.imagePath!.startsWith('data:')) {
-      return artwork;
-    }
+    if (artwork.imagePaths.isEmpty) return artwork;
 
-    // === WEB: always use base64 data URI (no CORS issues, always works) ===
-    if (kIsWeb) {
-      if (imageBytes != null && imageBytes.isNotEmpty) {
-        final b64 = base64Encode(imageBytes);
-        final dataUri = 'data:image/jpeg;base64,$b64';
-        debugPrint('Image encoded as base64 data URI (${imageBytes.length} bytes)');
+    final persistedPaths = <String>[];
+    int bytesIndex = 0;
 
-        // Also try Firebase Storage upload in background for cross-device sync
-        if (_useFirebase && _uid != null) {
-          _storageService.uploadWorkImageBytes(
-            uid: _uid!,
-            workId: artwork.id,
-            bytes: imageBytes,
-          ).then((_) => debugPrint('Background upload to Storage OK'))
-           .catchError((e) => debugPrint('Background upload failed: $e'));
+    for (final path in artwork.imagePaths) {
+      // Already persisted (data URI or HTTP URL)
+      if (path.startsWith('data:') || path.startsWith('http')) {
+        persistedPaths.add(path);
+        continue;
+      }
+
+      // New image that needs persisting
+      final bytes = (imageBytesList != null && bytesIndex < imageBytesList.length)
+          ? imageBytesList[bytesIndex++]
+          : null;
+
+      if (kIsWeb) {
+        if (bytes != null && bytes.isNotEmpty) {
+          final b64 = base64Encode(bytes);
+          persistedPaths.add('data:image/jpeg;base64,$b64');
+          debugPrint('Image ${persistedPaths.length} encoded as base64');
         }
-
-        return artwork.copyWith(imagePath: dataUri);
+        // Skip unpersistable paths on web
+        continue;
       }
-      // Already an HTTP URL (from Firestore) — keep it
-      if (artwork.imagePath!.startsWith('http')) {
-        return artwork;
-      }
-      // No bytes available — can't persist on web
-      debugPrint('WARNING: No image bytes available for web persistence');
-      return artwork;
-    }
 
-    // === MOBILE: use Firebase Storage URL or local file ===
-    if (artwork.imagePath!.startsWith('http')) {
-      return artwork;
-    }
-
-    if (_useFirebase && _uid != null) {
-      try {
-        String imageUrl;
-        if (imageBytes != null) {
-          imageUrl = await _storageService.uploadWorkImageBytes(
-            uid: _uid!,
-            workId: artwork.id,
-            bytes: imageBytes,
-          );
-        } else {
-          imageUrl = await _storageService.uploadWorkImage(
-            uid: _uid!,
-            workId: artwork.id,
-            filePath: artwork.imagePath!,
-          );
+      // Mobile: upload to Firebase or copy locally
+      if (_useFirebase && _uid != null) {
+        try {
+          final imgId = '${artwork.id}_${persistedPaths.length}';
+          String imageUrl;
+          if (bytes != null) {
+            imageUrl = await _storageService.uploadWorkImageBytes(
+              uid: _uid!, workId: imgId, bytes: bytes,
+            );
+          } else {
+            imageUrl = await _storageService.uploadWorkImage(
+              uid: _uid!, workId: imgId, filePath: path,
+            );
+          }
+          persistedPaths.add(imageUrl);
+          continue;
+        } catch (e) {
+          debugPrint('Firebase upload failed for image: $e');
         }
-        debugPrint('Image uploaded to Firebase Storage');
-        return artwork.copyWith(imagePath: imageUrl);
-      } catch (e) {
-        debugPrint('Firebase Storage upload failed: $e');
+      }
+
+      // Mobile fallback: copy to documents
+      final file = File(path);
+      if (await file.exists()) {
+        final appDir = await getApplicationDocumentsDirectory();
+        final imagesDir = Directory('${appDir.path}/vault_images');
+        if (!await imagesDir.exists()) {
+          await imagesDir.create(recursive: true);
+        }
+        final ext = p.extension(path);
+        final newPath = '${imagesDir.path}/${artwork.id}_${persistedPaths.length}$ext';
+        if (path != newPath) await file.copy(newPath);
+        persistedPaths.add(newPath);
       }
     }
 
-    return _copyImageToDocuments(artwork);
-  }
-
-  Future<ArtWork> _copyImageToDocuments(ArtWork artwork) async {
-    if (artwork.imagePath == null) return artwork;
-
-    final file = File(artwork.imagePath!);
-    if (!await file.exists()) return artwork;
-
-    final appDir = await getApplicationDocumentsDirectory();
-    final imagesDir = Directory('${appDir.path}/vault_images');
-    if (!await imagesDir.exists()) {
-      await imagesDir.create(recursive: true);
-    }
-
-    final extension = p.extension(artwork.imagePath!);
-    final newPath = '${imagesDir.path}/${artwork.id}$extension';
-
-    if (artwork.imagePath != newPath) {
-      await file.copy(newPath);
-    }
-
-    return artwork.copyWith(imagePath: newPath);
+    return artwork.copyWith(imagePaths: persistedPaths);
   }
 }

@@ -8,10 +8,19 @@ import '../utils/nav_helper.dart';
 import '../widgets/artwork_image.dart';
 import 'artwork_form_screen.dart';
 
-class ArtworkDetailScreen extends StatelessWidget {
+class ArtworkDetailScreen extends StatefulWidget {
   final ArtWork artwork;
 
   const ArtworkDetailScreen({super.key, required this.artwork});
+
+  @override
+  State<ArtworkDetailScreen> createState() => _ArtworkDetailScreenState();
+}
+
+class _ArtworkDetailScreenState extends State<ArtworkDetailScreen> {
+  int _currentImageIndex = 0;
+
+  ArtWork get artwork => widget.artwork;
 
   String _formatCurrency(double value) {
     final formatter = NumberFormat.currency(
@@ -90,8 +99,8 @@ class ArtworkDetailScreen extends StatelessWidget {
     );
   }
 
-  void _openImageViewer(BuildContext context) {
-    if (artwork.imagePath == null || artwork.imagePath!.isEmpty) return;
+  void _openImageViewer(BuildContext context, {int index = 0}) {
+    if (!artwork.hasImages) return;
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
@@ -100,7 +109,7 @@ class ArtworkDetailScreen extends StatelessWidget {
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 250),
         pageBuilder: (_, __, ___) =>
-            _FullScreenImageViewer(imagePath: artwork.imagePath!),
+            _FullScreenImageViewer(imagePaths: artwork.imagePaths, initialIndex: index),
         transitionsBuilder: (_, animation, __, child) {
           return FadeTransition(opacity: animation, child: child);
         },
@@ -135,17 +144,55 @@ class ArtworkDetailScreen extends StatelessWidget {
               const SizedBox(width: 8),
             ],
             flexibleSpace: FlexibleSpaceBar(
-              background: GestureDetector(
-                onTap: () => _openImageViewer(context),
-                child: Hero(
-                  tag: 'artwork_${artwork.id}',
-                  child: ArtworkImage(
-                    imagePath: artwork.imagePath,
-                    fit: BoxFit.contain,
-                    iconSize: 64,
-                  ),
-                ),
-              ),
+              background: artwork.hasImages
+                  ? Stack(
+                      children: [
+                        PageView.builder(
+                          itemCount: artwork.imagePaths.length,
+                          onPageChanged: (i) => setState(() => _currentImageIndex = i),
+                          itemBuilder: (_, i) => GestureDetector(
+                            onTap: () => _openImageViewer(context, index: i),
+                            child: i == 0
+                                ? Hero(
+                                    tag: 'artwork_${artwork.id}',
+                                    child: ArtworkImage(
+                                      imagePath: artwork.imagePaths[i],
+                                      fit: BoxFit.contain,
+                                      iconSize: 64,
+                                    ),
+                                  )
+                                : ArtworkImage(
+                                    imagePath: artwork.imagePaths[i],
+                                    fit: BoxFit.contain,
+                                    iconSize: 64,
+                                  ),
+                          ),
+                        ),
+                        if (artwork.imagePaths.length > 1)
+                          Positioned(
+                            bottom: 12,
+                            left: 0,
+                            right: 0,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(artwork.imagePaths.length, (i) =>
+                                Container(
+                                  width: i == _currentImageIndex ? 8 : 6,
+                                  height: i == _currentImageIndex ? 8 : 6,
+                                  margin: const EdgeInsets.symmetric(horizontal: 3),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: i == _currentImageIndex
+                                        ? AppColors.textPrimary
+                                        : AppColors.textTertiary.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  : const ArtworkImage(imagePath: null, iconSize: 64),
             ),
           ),
 
@@ -356,11 +403,12 @@ class ArtworkDetailScreen extends StatelessWidget {
   }
 }
 
-/// Fullscreen image viewer with zoom and pan support.
+/// Fullscreen image viewer with zoom, pan, and swipe between images.
 class _FullScreenImageViewer extends StatefulWidget {
-  final String imagePath;
+  final List<String> imagePaths;
+  final int initialIndex;
 
-  const _FullScreenImageViewer({required this.imagePath});
+  const _FullScreenImageViewer({required this.imagePaths, this.initialIndex = 0});
 
   @override
   State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
@@ -368,8 +416,9 @@ class _FullScreenImageViewer extends StatefulWidget {
 
 class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
     with SingleTickerProviderStateMixin {
-  final TransformationController _transformController =
-      TransformationController();
+  late PageController _pageController;
+  late int _currentIndex;
+  final TransformationController _transformController = TransformationController();
   late AnimationController _animController;
   Animation<Matrix4>? _animation;
   TapDownDetails? _doubleTapDetails;
@@ -377,6 +426,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
   @override
   void initState() {
     super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
     _animController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 250),
@@ -389,6 +440,7 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
 
   @override
   void dispose() {
+    _pageController.dispose();
     _animController.dispose();
     _transformController.dispose();
     super.dispose();
@@ -400,10 +452,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
 
     Matrix4 endMatrix;
     if (currentScale > 1.1) {
-      // Zoom out to fit
       endMatrix = Matrix4.identity();
     } else {
-      // Zoom in to 2.5x centered on tap
       endMatrix = Matrix4.identity()
         ..translate(position.dx * -1.5, position.dy * -1.5)
         ..scale(2.5);
@@ -412,29 +462,26 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
     _animation = Matrix4Tween(
       begin: _transformController.value,
       end: endMatrix,
-    ).animate(CurvedAnimation(
-      parent: _animController,
-      curve: Curves.easeOutCubic,
-    ));
+    ).animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward(from: 0);
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasMultiple = widget.imagePaths.length > 1;
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Dismiss on background tap
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
             child: Container(color: Colors.transparent),
           ),
 
-          // Interactive image
+          // Swipeable images with zoom
           Center(
             child: GestureDetector(
-              onDoubleTapDown: (details) => _doubleTapDetails = details,
+              onDoubleTapDown: (d) => _doubleTapDetails = d,
               onDoubleTap: _handleDoubleTap,
               child: InteractiveViewer(
                 transformationController: _transformController,
@@ -443,15 +490,43 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
                 child: SizedBox(
                   width: MediaQuery.of(context).size.width,
                   height: MediaQuery.of(context).size.height,
-                  child: ArtworkImage(
-                    imagePath: widget.imagePath,
-                    fit: BoxFit.contain,
-                    iconSize: 64,
+                  child: PageView.builder(
+                    controller: _pageController,
+                    itemCount: widget.imagePaths.length,
+                    onPageChanged: (i) => setState(() {
+                      _currentIndex = i;
+                      _transformController.value = Matrix4.identity();
+                    }),
+                    itemBuilder: (_, i) => ArtworkImage(
+                      imagePath: widget.imagePaths[i],
+                      fit: BoxFit.contain,
+                      iconSize: 64,
+                    ),
                   ),
                 ),
               ),
             ),
           ),
+
+          // Counter
+          if (hasMultiple)
+            Positioned(
+              bottom: MediaQuery.of(context).padding.bottom + 20,
+              left: 0, right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_currentIndex + 1} / ${widget.imagePaths.length}',
+                    style: const TextStyle(fontSize: 13, color: Colors.white, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ),
+            ),
 
           // Close button
           Positioned(
@@ -461,15 +536,8 @@ class _FullScreenImageViewerState extends State<_FullScreenImageViewer>
               onTap: () => Navigator.of(context).pop(),
               child: Container(
                 padding: const EdgeInsets.all(10),
-                decoration: const BoxDecoration(
-                  color: Colors.black54,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  size: 22,
-                  color: Colors.white,
-                ),
+                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                child: const Icon(Icons.close, size: 22, color: Colors.white),
               ),
             ),
           ),
