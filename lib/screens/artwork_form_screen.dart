@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -22,19 +23,25 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
 
   late TextEditingController _titleController;
   late TextEditingController _authorController;
-  late TextEditingController _modalityController;
   late TextEditingController _techniqueController;
-  late TextEditingController _movementController;
   late TextEditingController _purchasePlaceController;
-  late TextEditingController _communityController;
+  late TextEditingController _localityController;
+  late TextEditingController _commentsController;
   late TextEditingController _valueController;
   late TextEditingController _yearController;
+
+  String? _formato;
+  String? _rama;
+  String? _country;
+  String? _estadoMexico;
 
   String? _imagePath;
   Uint8List? _webImageBytes;
   bool _isSaving = false;
 
   bool get _isEditing => widget.artwork != null;
+  bool get _isArtePopular => _formato == 'Arte popular';
+  bool get _isMexico => _country == 'México';
 
   @override
   void initState() {
@@ -42,11 +49,10 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     final a = widget.artwork;
     _titleController = TextEditingController(text: a?.title ?? '');
     _authorController = TextEditingController(text: a?.author ?? '');
-    _modalityController = TextEditingController(text: a?.modality ?? '');
     _techniqueController = TextEditingController(text: a?.technique ?? '');
-    _movementController = TextEditingController(text: a?.movement ?? '');
     _purchasePlaceController = TextEditingController(text: a?.purchasePlace ?? '');
-    _communityController = TextEditingController(text: a?.community ?? '');
+    _localityController = TextEditingController(text: a?.locality ?? '');
+    _commentsController = TextEditingController(text: a?.comments ?? '');
     _valueController = TextEditingController(
       text: a != null ? a.value.toStringAsFixed(2) : '',
     );
@@ -54,17 +60,23 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       text: a?.year?.toString() ?? '',
     );
     _imagePath = a?.imagePath;
+
+    if (a != null) {
+      _formato = a.formato.isNotEmpty ? a.formato : null;
+      _rama = a.rama.isNotEmpty ? a.rama : null;
+      _country = a.country.isNotEmpty ? a.country : null;
+      _estadoMexico = a.state.isNotEmpty ? a.state : null;
+    }
   }
 
   @override
   void dispose() {
     _titleController.dispose();
     _authorController.dispose();
-    _modalityController.dispose();
     _techniqueController.dispose();
-    _movementController.dispose();
     _purchasePlaceController.dispose();
-    _communityController.dispose();
+    _localityController.dispose();
+    _commentsController.dispose();
     _valueController.dispose();
     _yearController.dispose();
     super.dispose();
@@ -79,7 +91,6 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         imageQuality: 85,
       );
       if (image != null) {
-        // Read bytes for web reliability
         final bytes = await image.readAsBytes();
         setState(() {
           _imagePath = image.path;
@@ -207,6 +218,27 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     );
   }
 
+  void _onFormatoChanged(String? value) {
+    setState(() {
+      _formato = value;
+      if (!_isArtePopular) {
+        _rama = null;
+        _country = null;
+        _estadoMexico = null;
+        _localityController.clear();
+      }
+    });
+  }
+
+  void _onCountryChanged(String? value) {
+    setState(() {
+      _country = value;
+      if (!_isMexico) {
+        _estadoMexico = null;
+      }
+    });
+  }
+
   Future<void> _saveArtwork() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -219,11 +251,14 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         id: widget.artwork?.id,
         title: _titleController.text.trim(),
         author: _authorController.text.trim(),
-        modality: _modalityController.text.trim(),
+        formato: _formato ?? '',
         technique: _techniqueController.text.trim(),
-        movement: _movementController.text.trim(),
+        rama: _isArtePopular ? (_rama ?? '') : '',
+        country: _isArtePopular ? (_country ?? '') : '',
+        state: _isArtePopular && _isMexico ? (_estadoMexico ?? '') : '',
+        locality: _isArtePopular ? _localityController.text.trim() : '',
         purchasePlace: _purchasePlaceController.text.trim(),
-        community: _communityController.text.trim(),
+        comments: _commentsController.text.trim(),
         year: _yearController.text.isNotEmpty
             ? int.tryParse(_yearController.text.trim())
             : null,
@@ -266,11 +301,7 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(
-            Icons.close,
-            color: AppColors.textPrimary,
-            size: 22,
-          ),
+          icon: const Icon(Icons.close, color: AppColors.textPrimary, size: 22),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
@@ -316,7 +347,6 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
           children: [
             // Image picker
             _buildImagePicker(),
-
             const SizedBox(height: AppSpacing.xl),
 
             // Title
@@ -324,10 +354,8 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
               controller: _titleController,
               label: 'Título',
               hint: 'Ej: La noche estrellada',
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Campo requerido' : null,
+              validator: _requiredValidator,
             ),
-
             const SizedBox(height: AppSpacing.lg),
 
             // Author
@@ -335,43 +363,71 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
               controller: _authorController,
               label: 'Autor',
               hint: 'Ej: Vincent van Gogh',
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Campo requerido' : null,
+              validator: _requiredValidator,
             ),
-
             const SizedBox(height: AppSpacing.lg),
 
-            // Modality autocomplete
-            _buildAutocompleteField(
-              controller: _modalityController,
-              label: 'Modalidad',
-              hint: 'Ej: Pintura, Escultura...',
-              suggestions: ArtworkOptions.modalities,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Campo requerido' : null,
+            // Formato (dropdown)
+            _buildDropdown(
+              label: 'Formato',
+              value: _formato,
+              items: ArtworkOptions.formatos,
+              onChanged: _onFormatoChanged,
+              validator: (v) => v == null ? 'Campo requerido' : null,
             ),
-
             const SizedBox(height: AppSpacing.lg),
 
-            // Technique autocomplete
-            _buildAutocompleteField(
+            // === Conditional: Arte popular fields ===
+            if (_isArtePopular) ...[
+              // Rama
+              _buildDropdown(
+                label: 'Rama',
+                value: _rama,
+                items: ArtworkOptions.ramas,
+                onChanged: (v) => setState(() => _rama = v),
+                validator: (v) => v == null ? 'Campo requerido' : null,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Comunidad (Country)
+              _buildDropdown(
+                label: 'Comunidad (País)',
+                value: _country,
+                items: ArtworkOptions.countries,
+                onChanged: _onCountryChanged,
+              ),
+              const SizedBox(height: AppSpacing.lg),
+
+              // Estado (only for México)
+              if (_isMexico) ...[
+                _buildDropdown(
+                  label: 'Estado',
+                  value: _estadoMexico,
+                  items: ArtworkOptions.estadosMexico,
+                  onChanged: (v) => setState(() => _estadoMexico = v),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+
+              // Localidad (free text, any country)
+              if (_country != null && _country!.isNotEmpty) ...[
+                _buildTextField(
+                  controller: _localityController,
+                  label: 'Localidad',
+                  hint: 'Ej: San Bartolo Coyotepec',
+                ),
+                const SizedBox(height: AppSpacing.lg),
+              ],
+            ],
+
+            // === Shared fields (always visible) ===
+
+            // Technique
+            _buildTextField(
               controller: _techniqueController,
               label: 'Técnica',
-              hint: 'Ej: Óleo sobre lienzo',
-              suggestions: ArtworkOptions.techniques,
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Campo requerido' : null,
+              hint: 'Ej: Óleo sobre lienzo, Barro negro...',
             ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Movement (free text)
-            _buildTextField(
-              controller: _movementController,
-              label: 'Corriente artística',
-              hint: 'Ej: Impresionismo, Arte Contemporáneo...',
-            ),
-
             const SizedBox(height: AppSpacing.lg),
 
             // Purchase place
@@ -380,16 +436,6 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
               label: 'Lugar de compra',
               hint: 'Ej: Galería Roma, Mercado de Coyoacán...',
             ),
-
-            const SizedBox(height: AppSpacing.lg),
-
-            // Community
-            _buildTextField(
-              controller: _communityController,
-              label: 'Comunidad',
-              hint: 'Ej: Oaxaca, San Cristóbal...',
-            ),
-
             const SizedBox(height: AppSpacing.lg),
 
             // Year and Value in a row
@@ -423,17 +469,22 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
                       ),
                     ],
                     validator: (v) {
-                      if (v == null || v.trim().isEmpty) {
-                        return 'Campo requerido';
-                      }
-                      if (double.tryParse(v.trim()) == null) {
-                        return 'Valor inválido';
-                      }
+                      if (v == null || v.trim().isEmpty) return 'Campo requerido';
+                      if (double.tryParse(v.trim()) == null) return 'Valor inválido';
                       return null;
                     },
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: AppSpacing.lg),
+
+            // Comments
+            _buildTextField(
+              controller: _commentsController,
+              label: 'Comentarios',
+              hint: 'Notas adicionales sobre la obra...',
+              maxLines: 3,
             ),
 
             const SizedBox(height: AppSpacing.xxl),
@@ -442,6 +493,11 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
       ),
     );
   }
+
+  String? _requiredValidator(String? v) =>
+      v == null || v.trim().isEmpty ? 'Campo requerido' : null;
+
+  // ─── Image picker ───
 
   Widget _buildImagePicker() {
     return GestureDetector(
@@ -453,58 +509,32 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         decoration: BoxDecoration(
           color: AppColors.chipBackground,
           borderRadius: BorderRadius.circular(AppBorderRadius.lg),
-          border: Border.all(
-            color: AppColors.border,
-            width: 0.5,
-          ),
+          border: Border.all(color: AppColors.border, width: 0.5),
         ),
         clipBehavior: Clip.antiAlias,
         child: _imagePath != null
             ? Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Show from bytes if available (freshly picked), otherwise from path
                   _webImageBytes != null
-                      ? Image.memory(
-                          _webImageBytes!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _buildImagePlaceholder(),
-                        )
-                      : ArtworkImage(
-                          imagePath: _imagePath,
-                          fit: BoxFit.cover,
-                        ),
+                      ? Image.memory(_webImageBytes!, fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _buildImagePlaceholder())
+                      : ArtworkImage(imagePath: _imagePath, fit: BoxFit.cover),
                   Positioned(
                     bottom: AppSpacing.sm,
                     right: AppSpacing.sm,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.textPrimary.withValues(alpha: 0.75),
-                        borderRadius:
-                            BorderRadius.circular(AppBorderRadius.md),
+                        borderRadius: BorderRadius.circular(AppBorderRadius.md),
                       ),
                       child: const Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(
-                            Icons.edit,
-                            size: 14,
-                            color: Colors.white,
-                          ),
+                          Icon(Icons.edit, size: 14, color: Colors.white),
                           SizedBox(width: 4),
-                          Text(
-                            'Cambiar',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
+                          Text('Cambiar', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w500)),
                         ],
                       ),
                     ),
@@ -520,31 +550,16 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     return const Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Icon(
-          Icons.add_photo_alternate_outlined,
-          size: 40,
-          color: AppColors.textTertiary,
-        ),
+        Icon(Icons.add_photo_alternate_outlined, size: 40, color: AppColors.textTertiary),
         SizedBox(height: AppSpacing.sm),
-        Text(
-          'Agregar fotografía',
-          style: TextStyle(
-            fontSize: 14,
-            color: AppColors.textTertiary,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
+        Text('Agregar fotografía', style: TextStyle(fontSize: 14, color: AppColors.textTertiary, fontWeight: FontWeight.w400)),
         SizedBox(height: 2),
-        Text(
-          'Cámara o galería',
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textTertiary,
-          ),
-        ),
+        Text('Cámara o galería', style: TextStyle(fontSize: 12, color: AppColors.textTertiary)),
       ],
     );
   }
+
+  // ─── Form fields ───
 
   Widget _buildTextField({
     required TextEditingController controller,
@@ -553,6 +568,7 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
     TextInputType? keyboardType,
     List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
+    int maxLines = 1,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -560,10 +576,8 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         Text(
           label.toUpperCase(),
           style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textTertiary,
-            letterSpacing: 1.2,
+            fontSize: 11, fontWeight: FontWeight.w600,
+            color: AppColors.textTertiary, letterSpacing: 1.2,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -572,70 +586,19 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
           validator: validator,
-          style: const TextStyle(
-            fontSize: 16,
-            color: AppColors.textPrimary,
-            fontWeight: FontWeight.w400,
-          ),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: const TextStyle(
-              fontSize: 16,
-              color: AppColors.textTertiary,
-              fontWeight: FontWeight.w400,
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.md,
-              vertical: 14,
-            ),
-            filled: true,
-            fillColor: AppColors.surface,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.border,
-                width: 0.5,
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.border,
-                width: 0.5,
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.textPrimary,
-                width: 1.0,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.error,
-                width: 0.5,
-              ),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(AppBorderRadius.md),
-              borderSide: const BorderSide(
-                color: AppColors.error,
-                width: 1.0,
-              ),
-            ),
-          ),
+          maxLines: maxLines,
+          style: const TextStyle(fontSize: 16, color: AppColors.textPrimary, fontWeight: FontWeight.w400),
+          decoration: _inputDecoration(hint),
         ),
       ],
     );
   }
 
-  Widget _buildAutocompleteField({
-    required TextEditingController controller,
+  Widget _buildDropdown({
     required String label,
-    String? hint,
-    required List<String> suggestions,
+    required String? value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
     return Column(
@@ -644,135 +607,55 @@ class _ArtworkFormScreenState extends State<ArtworkFormScreen> {
         Text(
           label.toUpperCase(),
           style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textTertiary,
-            letterSpacing: 1.2,
+            fontSize: 11, fontWeight: FontWeight.w600,
+            color: AppColors.textTertiary, letterSpacing: 1.2,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Autocomplete<String>(
-          initialValue: controller.value,
-          optionsBuilder: (textEditingValue) {
-            if (textEditingValue.text.isEmpty) {
-              return suggestions;
-            }
-            final q = textEditingValue.text.toLowerCase();
-            return suggestions
-                .where((s) => s.toLowerCase().contains(q))
-                .toList();
-          },
-          onSelected: (value) {
-            controller.text = value;
-          },
-          optionsViewBuilder: (context, onSelected, options) {
-            return Align(
-              alignment: Alignment.topLeft,
-              child: Material(
-                elevation: 4,
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 200),
-                  child: ListView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    itemCount: options.length,
-                    itemBuilder: (context, index) {
-                      final option = options.elementAt(index);
-                      return InkWell(
-                        onTap: () => onSelected(option),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.md,
-                            vertical: 12,
-                          ),
-                          child: Text(
-                            option,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-            );
-          },
-          fieldViewBuilder:
-              (context, textController, focusNode, onFieldSubmitted) {
-            // Sync with our controller
-            textController.text = controller.text;
-            textController.addListener(() {
-              if (controller.text != textController.text) {
-                controller.text = textController.text;
-              }
-            });
-            return TextFormField(
-              controller: textController,
-              focusNode: focusNode,
-              validator: validator,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.w400,
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textTertiary,
-                  fontWeight: FontWeight.w400,
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: AppSpacing.md,
-                  vertical: 14,
-                ),
-                filled: true,
-                fillColor: AppColors.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppColors.border,
-                    width: 0.5,
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppColors.border,
-                    width: 0.5,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppColors.textPrimary,
-                    width: 1.0,
-                  ),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppColors.error,
-                    width: 0.5,
-                  ),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(AppBorderRadius.md),
-                  borderSide: const BorderSide(
-                    color: AppColors.error,
-                    width: 1.0,
-                  ),
-                ),
-              ),
-            );
-          },
+        DropdownButtonFormField<String>(
+          value: items.contains(value) ? value : null,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textTertiary),
+          style: const TextStyle(fontSize: 16, color: AppColors.textPrimary, fontWeight: FontWeight.w400),
+          decoration: _inputDecoration('Seleccionar'),
+          hint: Text('Seleccionar $label', style: const TextStyle(color: AppColors.textTertiary, fontWeight: FontWeight.w400)),
+          validator: validator,
+          items: items.map((item) => DropdownMenuItem<String>(value: item, child: Text(item))).toList(),
+          onChanged: onChanged,
+          dropdownColor: AppColors.surface,
+          borderRadius: BorderRadius.circular(AppBorderRadius.md),
         ),
       ],
+    );
+  }
+
+  InputDecoration _inputDecoration(String? hint) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: const TextStyle(fontSize: 16, color: AppColors.textTertiary, fontWeight: FontWeight.w400),
+      contentPadding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: 14),
+      filled: true,
+      fillColor: AppColors.surface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        borderSide: const BorderSide(color: AppColors.border, width: 0.5),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        borderSide: const BorderSide(color: AppColors.border, width: 0.5),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        borderSide: const BorderSide(color: AppColors.textPrimary, width: 1.0),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        borderSide: const BorderSide(color: AppColors.error, width: 0.5),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppBorderRadius.md),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.0),
+      ),
     );
   }
 }

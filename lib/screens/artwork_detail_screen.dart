@@ -239,20 +239,30 @@ class ArtworkDetailScreen extends StatelessWidget {
                   const SizedBox(height: AppSpacing.lg),
 
                   // Details grid
-                  _buildDetailRow('Modalidad', artwork.modality),
-                  _buildDivider(),
-                  _buildDetailRow('Técnica', artwork.technique),
-                  if (artwork.movement.isNotEmpty) ...[
+                  _buildDetailRow('Formato', artwork.formato),
+                  if (artwork.technique.isNotEmpty) ...[
                     _buildDivider(),
-                    _buildDetailRow('Corriente', artwork.movement),
+                    _buildDetailRow('Técnica', artwork.technique),
+                  ],
+                  if (artwork.isArtePopular && artwork.rama.isNotEmpty) ...[
+                    _buildDivider(),
+                    _buildDetailRow('Rama', artwork.rama),
+                  ],
+                  if (artwork.country.isNotEmpty) ...[
+                    _buildDivider(),
+                    _buildDetailRow('Comunidad', [
+                      artwork.country,
+                      if (artwork.state.isNotEmpty) artwork.state,
+                      if (artwork.locality.isNotEmpty) artwork.locality,
+                    ].join(', ')),
                   ],
                   if (artwork.purchasePlace.isNotEmpty) ...[
                     _buildDivider(),
                     _buildDetailRow('Lugar de compra', artwork.purchasePlace),
                   ],
-                  if (artwork.community.isNotEmpty) ...[
+                  if (artwork.comments.isNotEmpty) ...[
                     _buildDivider(),
-                    _buildDetailRow('Comunidad', artwork.community),
+                    _buildDetailRow('Comentarios', artwork.comments),
                   ],
 
                   const SizedBox(height: AppSpacing.xxl),

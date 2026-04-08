@@ -24,12 +24,11 @@ class ArtCollectionProvider extends ChangeNotifier {
   String _searchQuery = '';
   String? _filterAuthor;
   String? _filterTechnique;
-  String? _filterModality;
+  String? _filterFormato;
 
   List<String> _authors = [];
   List<String> _techniques = [];
-  List<String> _modalities = [];
-  List<String> _movements = [];
+  List<String> _formatos = [];
 
   // Getters
   List<ArtWork> get artworks => _filteredArtworks;
@@ -39,15 +38,14 @@ class ArtCollectionProvider extends ChangeNotifier {
   String get searchQuery => _searchQuery;
   String? get filterAuthor => _filterAuthor;
   String? get filterTechnique => _filterTechnique;
-  String? get filterModality => _filterModality;
+  String? get filterFormato => _filterFormato;
   List<String> get authors => _authors;
   List<String> get techniques => _techniques;
-  List<String> get modalities => _modalities;
-  List<String> get movements => _movements;
+  List<String> get formatos => _formatos;
   bool get hasActiveFilters =>
       _filterAuthor != null ||
       _filterTechnique != null ||
-      _filterModality != null;
+      _filterFormato != null;
   int get totalCount => _artworks.length;
   int get filteredCount => _filteredArtworks.length;
 
@@ -57,14 +55,12 @@ class ArtCollectionProvider extends ChangeNotifier {
   List<ArtWork> getWorksByAuthor(String author) =>
       _artworks.where((a) => a.author == author).toList();
 
-  List<ArtWork> getWorksByModality(String modality) =>
-      _artworks.where((a) => a.modality == modality).toList();
+  List<ArtWork> getWorksByFormato(String formato) =>
+      _artworks.where((a) => a.formato == formato).toList();
 
   List<ArtWork> getWorksByTechnique(String technique) =>
       _artworks.where((a) => a.technique == technique).toList();
 
-  List<ArtWork> getWorksByMovement(String movement) =>
-      _artworks.where((a) => a.movement == movement).toList();
 
   void refreshFeatured() {
     if (_artworks.length <= 4) {
@@ -315,8 +311,8 @@ class ArtCollectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setFilterModality(String? modality) {
-    _filterModality = (_filterModality == modality) ? null : modality;
+  void setFilterFormato(String? formato) {
+    _filterFormato = (_filterFormato == formato) ? null : formato;
     _applyFilters();
     notifyListeners();
   }
@@ -325,7 +321,7 @@ class ArtCollectionProvider extends ChangeNotifier {
     _searchQuery = '';
     _filterAuthor = null;
     _filterTechnique = null;
-    _filterModality = null;
+    _filterFormato = null;
     _applyFilters();
     notifyListeners();
   }
@@ -337,22 +333,21 @@ class ArtCollectionProvider extends ChangeNotifier {
         final matchesSearch = artwork.title.toLowerCase().contains(query) ||
             artwork.author.toLowerCase().contains(query) ||
             artwork.technique.toLowerCase().contains(query) ||
-            artwork.movement.toLowerCase().contains(query) ||
-            artwork.modality.toLowerCase().contains(query);
+            artwork.formato.toLowerCase().contains(query) ||
+            artwork.comments.toLowerCase().contains(query);
         if (!matchesSearch) return false;
       }
       if (_filterAuthor != null && artwork.author != _filterAuthor) return false;
       if (_filterTechnique != null && artwork.technique != _filterTechnique) return false;
-      if (_filterModality != null && artwork.modality != _filterModality) return false;
+      if (_filterFormato != null && artwork.formato != _filterFormato) return false;
       return true;
     }).toList();
   }
 
   void _refreshFilterOptions() {
     _authors = _artworks.map((a) => a.author).toSet().toList()..sort();
-    _techniques = _artworks.map((a) => a.technique).toSet().toList()..sort();
-    _modalities = _artworks.map((a) => a.modality).toSet().toList()..sort();
-    _movements = _artworks.map((a) => a.movement).toSet().toList()..sort();
+    _techniques = _artworks.map((a) => a.technique).where((t) => t.isNotEmpty).toSet().toList()..sort();
+    _formatos = _artworks.map((a) => a.formato).where((f) => f.isNotEmpty).toSet().toList()..sort();
   }
 
   /// Persist the artwork image.

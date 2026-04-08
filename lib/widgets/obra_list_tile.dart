@@ -75,7 +75,9 @@ class ObraListTile extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '${artwork.modality} \u00B7 ${artwork.technique}',
+                    artwork.technique.isNotEmpty
+                        ? '${artwork.formato} \u00B7 ${artwork.technique}'
+                        : artwork.formato,
                     style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w400,

@@ -125,8 +125,8 @@ class _ObrasScreenState extends State<ObrasScreen> {
             return a.title.toLowerCase().contains(q) ||
                 a.author.toLowerCase().contains(q) ||
                 a.technique.toLowerCase().contains(q) ||
-                a.modality.toLowerCase().contains(q) ||
-                a.movement.toLowerCase().contains(q);
+                a.formato.toLowerCase().contains(q) ||
+                a.comments.toLowerCase().contains(q);
           }).toList();
         }
 

@@ -61,16 +61,16 @@ class ExploreScreen extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xl),
                   ],
 
-                  // Modalidades
-                  if (provider.modalities.isNotEmpty) ...[
-                    const SectionHeader(title: 'Modalidades'),
+                  // Formatos
+                  if (provider.formatos.isNotEmpty) ...[
+                    const SectionHeader(title: 'Formatos'),
                     const SizedBox(height: AppSpacing.sm),
                     _buildCategoryList(
                       context,
-                      items: provider.modalities,
-                      categoryType: 'modality',
+                      items: provider.formatos,
+                      categoryType: 'formato',
                       countFn: (val) =>
-                          provider.getWorksByModality(val).length,
+                          provider.getWorksByFormato(val).length,
                     ),
                     const SizedBox(height: AppSpacing.xl),
                   ],
@@ -85,20 +85,6 @@ class ExploreScreen extends StatelessWidget {
                       categoryType: 'technique',
                       countFn: (val) =>
                           provider.getWorksByTechnique(val).length,
-                    ),
-                    const SizedBox(height: AppSpacing.xl),
-                  ],
-
-                  // Corrientes artísticas
-                  if (provider.movements.isNotEmpty) ...[
-                    const SectionHeader(title: 'Corrientes artísticas'),
-                    const SizedBox(height: AppSpacing.sm),
-                    _buildCategoryList(
-                      context,
-                      items: provider.movements,
-                      categoryType: 'movement',
-                      countFn: (val) =>
-                          provider.getWorksByMovement(val).length,
                     ),
                     const SizedBox(height: AppSpacing.xxl),
                   ],

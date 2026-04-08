@@ -73,8 +73,8 @@ class FeaturedCard extends StatelessWidget {
                   const SizedBox(height: 1),
                   Text(
                     artwork.year != null
-                        ? '${artwork.modality} \u00B7 ${artwork.year}'
-                        : artwork.modality,
+                        ? '${artwork.formato} \u00B7 ${artwork.year}'
+                        : artwork.formato,
                     style: const TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w400,

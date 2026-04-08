@@ -24,12 +24,10 @@ class CategoryWorksScreen extends StatelessWidget {
     switch (categoryType) {
       case 'author':
         return provider.getWorksByAuthor(categoryValue);
-      case 'modality':
-        return provider.getWorksByModality(categoryValue);
+      case 'formato':
+        return provider.getWorksByFormato(categoryValue);
       case 'technique':
         return provider.getWorksByTechnique(categoryValue);
-      case 'movement':
-        return provider.getWorksByMovement(categoryValue);
       default:
         return [];
     }
@@ -39,12 +37,10 @@ class CategoryWorksScreen extends StatelessWidget {
     switch (categoryType) {
       case 'author':
         return 'Autor';
-      case 'modality':
-        return 'Modalidad';
+      case 'formato':
+        return 'Formato';
       case 'technique':
         return 'Técnica';
-      case 'movement':
-        return 'Corriente';
       default:
         return '';
     }

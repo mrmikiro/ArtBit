@@ -11,16 +11,9 @@ abstract class StorageHelper {
   Future<List<ArtWork>> getAllArtworks();
   Future<int> updateArtwork(ArtWork artwork);
   Future<int> deleteArtwork(String id);
-  Future<List<ArtWork>> searchArtworks({
-    String? query,
-    String? author,
-    String? technique,
-    String? modality,
-  });
   Future<List<String>> getDistinctAuthors();
   Future<List<String>> getDistinctTechniques();
-  Future<List<String>> getDistinctModalities();
-  Future<List<String>> getDistinctMovements();
+  Future<List<String>> getDistinctFormatos();
 
   /// Factory that returns the right implementation based on platform
   factory StorageHelper() {
@@ -54,32 +47,15 @@ class SqliteStorageHelper implements StorageHelper {
   Future<int> deleteArtwork(String id) => _db.deleteArtwork(id);
 
   @override
-  Future<List<ArtWork>> searchArtworks({
-    String? query,
-    String? author,
-    String? technique,
-    String? modality,
-  }) =>
-      _db.searchArtworks(
-        query: query,
-        author: author,
-        technique: technique,
-        modality: modality,
-      );
-
-  @override
   Future<List<String>> getDistinctAuthors() => _db.getDistinctAuthors();
 
   @override
   Future<List<String>> getDistinctTechniques() => _db.getDistinctTechniques();
 
   @override
-  Future<List<String>> getDistinctModalities() => _db.getDistinctModalities();
-
-  @override
-  Future<List<String>> getDistinctMovements() async {
+  Future<List<String>> getDistinctFormatos() async {
     final artworks = await _db.getAllArtworks();
-    return artworks.map((a) => a.movement).toSet().toList()..sort();
+    return artworks.map((a) => a.formato).where((f) => f.isNotEmpty).toSet().toList()..sort();
   }
 }
 
@@ -102,7 +78,6 @@ class WebStorageHelper implements StorageHelper {
       _artworks.removeWhere((a) => _isSeedArtwork(a));
       if (_artworks.length != before) await _save();
     } else {
-      // Start empty — only user-created artworks
       _artworks = [];
       await _save();
     }
@@ -115,14 +90,6 @@ class WebStorageHelper implements StorageHelper {
     await prefs.setString(_key, data);
   }
 
-  /// Known seed artwork authors — used to purge legacy demo data
-  static const _seedAuthors = {
-    'Francisco de Goya', 'Vincent van Gogh', 'Pablo Picasso',
-    'Salvador Dalí', 'Gustav Klimt', 'Frida Kahlo',
-    'Wassily Kandinsky', 'Auguste Rodin', 'Marcel Duchamp',
-    'Johannes Vermeer', 'Andy Warhol', 'Jean-Michel Basquiat',
-  };
-
   static const _seedTitles = {
     'Perro semihundido', 'La noche estrellada', 'Guernica',
     'La persistencia de la memoria', 'El beso', 'Las dos Fridas',
@@ -131,8 +98,7 @@ class WebStorageHelper implements StorageHelper {
     'Sin título (cráneo)',
   };
 
-  bool _isSeedArtwork(ArtWork a) =>
-      _seedTitles.contains(a.title) && _seedAuthors.contains(a.author);
+  bool _isSeedArtwork(ArtWork a) => _seedTitles.contains(a.title);
 
   @override
   Future<int> insertArtwork(ArtWork artwork) async {
@@ -166,40 +132,14 @@ class WebStorageHelper implements StorageHelper {
   }
 
   @override
-  Future<List<ArtWork>> searchArtworks({
-    String? query,
-    String? author,
-    String? technique,
-    String? modality,
-  }) async {
-    return _artworks.where((a) {
-      if (query != null && query.isNotEmpty) {
-        final q = query.toLowerCase();
-        if (!a.title.toLowerCase().contains(q) &&
-            !a.author.toLowerCase().contains(q)) {
-          return false;
-        }
-      }
-      if (author != null && author.isNotEmpty && a.author != author) return false;
-      if (technique != null && technique.isNotEmpty && a.technique != technique) return false;
-      if (modality != null && modality.isNotEmpty && a.modality != modality) return false;
-      return true;
-    }).toList();
-  }
-
-  @override
   Future<List<String>> getDistinctAuthors() async =>
       _artworks.map((a) => a.author).toSet().toList()..sort();
 
   @override
   Future<List<String>> getDistinctTechniques() async =>
-      _artworks.map((a) => a.technique).toSet().toList()..sort();
+      _artworks.map((a) => a.technique).where((t) => t.isNotEmpty).toSet().toList()..sort();
 
   @override
-  Future<List<String>> getDistinctModalities() async =>
-      _artworks.map((a) => a.modality).toSet().toList()..sort();
-
-  @override
-  Future<List<String>> getDistinctMovements() async =>
-      _artworks.map((a) => a.movement).toSet().toList()..sort();
+  Future<List<String>> getDistinctFormatos() async =>
+      _artworks.map((a) => a.formato).where((f) => f.isNotEmpty).toSet().toList()..sort();
 }

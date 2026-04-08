@@ -218,13 +218,13 @@ class _GalleryScreenState extends State<GalleryScreen> {
               const SizedBox(height: AppSpacing.md),
             ],
 
-            // Modality filter
-            if (provider.modalities.isNotEmpty)
+            // Formato filter
+            if (provider.formatos.isNotEmpty)
               FilterChipsBar(
-                label: 'Modalidad',
-                options: provider.modalities,
-                selectedValue: provider.filterModality,
-                onSelected: provider.setFilterModality,
+                label: 'Formato',
+                options: provider.formatos,
+                selectedValue: provider.filterFormato,
+                onSelected: provider.setFilterFormato,
               ),
           ],
         ),
