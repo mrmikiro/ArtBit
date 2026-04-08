@@ -4,11 +4,14 @@ class ArtWork {
   final String id;
   final String title;
   final String author;
-  final String modality;
+  final String formato;
   final String technique;
-  final String movement;
+  final String rama;
+  final String country;
+  final String state;
+  final String locality;
   final String purchasePlace;
-  final String community;
+  final String comments;
   final int? year;
   final String? imagePath;
   final double value;
@@ -18,11 +21,14 @@ class ArtWork {
     String? id,
     required this.title,
     required this.author,
-    required this.modality,
-    required this.technique,
-    this.movement = '',
+    required this.formato,
+    this.technique = '',
+    this.rama = '',
+    this.country = '',
+    this.state = '',
+    this.locality = '',
     this.purchasePlace = '',
-    this.community = '',
+    this.comments = '',
     this.year,
     this.imagePath,
     required this.value,
@@ -30,14 +36,19 @@ class ArtWork {
   })  : id = id ?? const Uuid().v4(),
         createdAt = createdAt ?? DateTime.now();
 
+  bool get isArtePopular => formato == 'Arte popular';
+
   ArtWork copyWith({
     String? title,
     String? author,
-    String? modality,
+    String? formato,
     String? technique,
-    String? movement,
+    String? rama,
+    String? country,
+    String? state,
+    String? locality,
     String? purchasePlace,
-    String? community,
+    String? comments,
     int? year,
     String? imagePath,
     double? value,
@@ -46,11 +57,14 @@ class ArtWork {
       id: id,
       title: title ?? this.title,
       author: author ?? this.author,
-      modality: modality ?? this.modality,
+      formato: formato ?? this.formato,
       technique: technique ?? this.technique,
-      movement: movement ?? this.movement,
+      rama: rama ?? this.rama,
+      country: country ?? this.country,
+      state: state ?? this.state,
+      locality: locality ?? this.locality,
       purchasePlace: purchasePlace ?? this.purchasePlace,
-      community: community ?? this.community,
+      comments: comments ?? this.comments,
       year: year ?? this.year,
       imagePath: imagePath ?? this.imagePath,
       value: value ?? this.value,
@@ -63,11 +77,16 @@ class ArtWork {
       'id': id,
       'title': title,
       'author': author,
-      'modality': modality,
+      'formato': formato,
+      // Backwards compat: also write as modality for existing queries
+      'modality': formato,
       'technique': technique,
-      'movement': movement,
+      'rama': rama,
+      'country': country,
+      'state': state,
+      'locality': locality,
       'purchasePlace': purchasePlace,
-      'community': community,
+      'comments': comments,
       'year': year,
       'imagePath': imagePath,
       'value': value,
@@ -80,11 +99,19 @@ class ArtWork {
       id: map['id'] as String,
       title: map['title'] as String,
       author: map['author'] as String,
-      modality: map['modality'] as String? ?? '',
+      // Read formato first, fall back to modality for old data
+      formato: map['formato'] as String? ??
+          map['modality'] as String? ??
+          '',
       technique: map['technique'] as String? ?? '',
-      movement: map['movement'] as String? ?? '',
+      rama: map['rama'] as String? ?? '',
+      country: map['country'] as String? ?? '',
+      state: map['state'] as String? ?? '',
+      locality: map['locality'] as String? ?? '',
       purchasePlace: map['purchasePlace'] as String? ?? '',
-      community: map['community'] as String? ?? '',
+      comments: map['comments'] as String? ??
+          map['movement'] as String? ??
+          '',
       year: map['year'] as int?,
       imagePath: map['imagePath'] as String?,
       value: (map['value'] as num).toDouble(),
@@ -101,17 +128,24 @@ class ArtWork {
 }
 
 class ArtworkOptions {
-  static const List<String> modalities = [
-    'Pintura',
-    'Escultura',
+  static const List<String> formatos = [
+    'Arte popular',
     'Fotografía',
-    'Grabado',
-    'Dibujo',
-    'Arte Digital',
-    'Instalación',
-    'Arte Textil',
-    'Cerámica',
-    'Mixta',
+    'Ilustración',
+    'Pintura / dibujo',
+    'Otro',
+  ];
+
+  static const List<String> ramas = [
+    'Barro',
+    'Madera',
+    'Fibras vegetales',
+    'Textiles',
+    'Papel',
+    'Metales',
+    'Cera',
+    'Vidrio',
+    'Otros',
   ];
 
   static const List<String> techniques = [
@@ -130,5 +164,33 @@ class ArtworkOptions {
     'Madera',
     'Digital',
     'Mixta',
+  ];
+
+  static const List<String> estadosMexico = [
+    'Aguascalientes', 'Baja California', 'Baja California Sur', 'Campeche',
+    'Chiapas', 'Chihuahua', 'Ciudad de México', 'Coahuila', 'Colima',
+    'Durango', 'Estado de México', 'Guanajuato', 'Guerrero', 'Hidalgo',
+    'Jalisco', 'Michoacán', 'Morelos', 'Nayarit', 'Nuevo León', 'Oaxaca',
+    'Puebla', 'Querétaro', 'Quintana Roo', 'San Luis Potosí', 'Sinaloa',
+    'Sonora', 'Tabasco', 'Tamaulipas', 'Tlaxcala', 'Veracruz', 'Yucatán',
+    'Zacatecas',
+  ];
+
+  static const List<String> countries = [
+    // México primero
+    'México',
+    // Latinoamérica
+    'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica',
+    'Cuba', 'Ecuador', 'El Salvador', 'Guatemala', 'Haití', 'Honduras',
+    'Nicaragua', 'Panamá', 'Paraguay', 'Perú', 'Puerto Rico',
+    'República Dominicana', 'Uruguay', 'Venezuela',
+    // Resto del mundo (alfabético)
+    'Alemania', 'Australia', 'Austria', 'Bélgica', 'Canadá', 'China',
+    'Corea del Sur', 'Dinamarca', 'Egipto', 'España', 'Estados Unidos',
+    'Filipinas', 'Francia', 'Grecia', 'India', 'Indonesia', 'Irlanda',
+    'Israel', 'Italia', 'Japón', 'Kenia', 'Marruecos', 'Nigeria',
+    'Noruega', 'Nueva Zelanda', 'Países Bajos', 'Polonia', 'Portugal',
+    'Reino Unido', 'Rusia', 'Sudáfrica', 'Suecia', 'Suiza', 'Tailandia',
+    'Turquía', 'Vietnam', 'Otro',
   ];
 }

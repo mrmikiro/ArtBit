@@ -217,7 +217,7 @@ class HomeScreen extends StatelessWidget {
                 Container(width: 0.5, height: 36, color: AppColors.divider),
                 _buildStat('${provider.authors.length}', 'Autores'),
                 Container(width: 0.5, height: 36, color: AppColors.divider),
-                _buildStat('${provider.movements.length}', 'Corrientes'),
+                _buildStat('${provider.formatos.length}', 'Formatos'),
               ],
             ),
           ),

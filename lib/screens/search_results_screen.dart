@@ -42,8 +42,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       return a.title.toLowerCase().contains(q) ||
           a.author.toLowerCase().contains(q) ||
           a.technique.toLowerCase().contains(q) ||
-          a.modality.toLowerCase().contains(q) ||
-          a.movement.toLowerCase().contains(q);
+          a.formato.toLowerCase().contains(q) ||
+          a.comments.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -148,7 +148,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         ),
                         SizedBox(height: AppSpacing.md),
                         Text(
-                          'Busca por título, autor,\ntécnica, modalidad o corriente',
+                          'Busca por título, autor,\ntécnica o formato',
                           style: TextStyle(
                             fontSize: 14,
                             color: AppColors.textTertiary,
