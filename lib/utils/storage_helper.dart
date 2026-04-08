@@ -97,14 +97,13 @@ class WebStorageHelper implements StorageHelper {
     if (data != null) {
       final List<dynamic> list = jsonDecode(data);
       _artworks = list.map((e) => ArtWork.fromMap(e)).toList();
-      // Migration: remove Goya seed artwork if still present
+      // Migration: purge all legacy seed artworks
       final before = _artworks.length;
-      _artworks.removeWhere((a) =>
-          a.title == 'Perro semihundido' &&
-          a.author == 'Francisco de Goya');
+      _artworks.removeWhere((a) => _isSeedArtwork(a));
       if (_artworks.length != before) await _save();
     } else {
-      _seedSampleData();
+      // Start empty — only user-created artworks
+      _artworks = [];
       await _save();
     }
     _initialized = true;
@@ -116,22 +115,24 @@ class WebStorageHelper implements StorageHelper {
     await prefs.setString(_key, data);
   }
 
-  void _seedSampleData() {
-    _artworks = [
-      ArtWork(title: 'La noche estrellada', author: 'Vincent van Gogh', modality: 'Pintura', technique: 'Óleo', movement: 'Impresionismo', year: 1889, value: 80000000),
-      ArtWork(title: 'Guernica', author: 'Pablo Picasso', modality: 'Pintura', technique: 'Óleo', movement: 'Cubismo', year: 1937, value: 200000000),
-      ArtWork(title: 'La persistencia de la memoria', author: 'Salvador Dalí', modality: 'Pintura', technique: 'Óleo', movement: 'Surrealismo', year: 1931, value: 150000000),
-      ArtWork(title: 'El beso', author: 'Gustav Klimt', modality: 'Pintura', technique: 'Óleo', movement: 'Modernismo', year: 1908, value: 120000000),
-      ArtWork(title: 'Las dos Fridas', author: 'Frida Kahlo', modality: 'Pintura', technique: 'Óleo', movement: 'Surrealismo', year: 1939, value: 35000000),
-      ArtWork(title: 'Composición VIII', author: 'Wassily Kandinsky', modality: 'Pintura', technique: 'Óleo', movement: 'Arte Abstracto', year: 1923, value: 40000000),
-      ArtWork(title: 'El pensador', author: 'Auguste Rodin', modality: 'Escultura', technique: 'Bronce', movement: 'Realismo', year: 1904, value: 15000000),
-      ArtWork(title: 'El gran vidrio', author: 'Marcel Duchamp', modality: 'Instalación', technique: 'Mixta', movement: 'Arte Contemporáneo', year: 1923, value: 60000000),
-      ArtWork(title: 'Lirios', author: 'Vincent van Gogh', modality: 'Pintura', technique: 'Óleo', movement: 'Impresionismo', year: 1889, value: 53900000),
-      ArtWork(title: 'La joven de la perla', author: 'Johannes Vermeer', modality: 'Pintura', technique: 'Óleo', movement: 'Barroco', year: 1665, value: 100000000),
-      ArtWork(title: 'Latas de sopa Campbell', author: 'Andy Warhol', modality: 'Grabado', technique: 'Serigrafía', movement: 'Pop Art', year: 1962, value: 11700000),
-      ArtWork(title: 'Sin título (cráneo)', author: 'Jean-Michel Basquiat', modality: 'Pintura', technique: 'Acrílico', movement: 'Arte Contemporáneo', year: 1981, value: 110500000),
-    ];
-  }
+  /// Known seed artwork authors — used to purge legacy demo data
+  static const _seedAuthors = {
+    'Francisco de Goya', 'Vincent van Gogh', 'Pablo Picasso',
+    'Salvador Dalí', 'Gustav Klimt', 'Frida Kahlo',
+    'Wassily Kandinsky', 'Auguste Rodin', 'Marcel Duchamp',
+    'Johannes Vermeer', 'Andy Warhol', 'Jean-Michel Basquiat',
+  };
+
+  static const _seedTitles = {
+    'Perro semihundido', 'La noche estrellada', 'Guernica',
+    'La persistencia de la memoria', 'El beso', 'Las dos Fridas',
+    'Composición VIII', 'El pensador', 'El gran vidrio',
+    'Lirios', 'La joven de la perla', 'Latas de sopa Campbell',
+    'Sin título (cráneo)',
+  };
+
+  bool _isSeedArtwork(ArtWork a) =>
+      _seedTitles.contains(a.title) && _seedAuthors.contains(a.author);
 
   @override
   Future<int> insertArtwork(ArtWork artwork) async {

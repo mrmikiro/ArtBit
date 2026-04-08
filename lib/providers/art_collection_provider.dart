@@ -139,15 +139,23 @@ class ArtCollectionProvider extends ChangeNotifier {
     }
   }
 
-  /// Remove legacy seed artworks that should no longer exist.
+  /// All legacy seed artwork titles that must be purged
+  static const _seedTitles = {
+    'Perro semihundido', 'La noche estrellada', 'Guernica',
+    'La persistencia de la memoria', 'El beso', 'Las dos Fridas',
+    'Composición VIII', 'El pensador', 'El gran vidrio',
+    'Lirios', 'La joven de la perla', 'Latas de sopa Campbell',
+    'Sin título (cráneo)',
+  };
+
+  bool _isSeedArtwork(ArtWork a) => _seedTitles.contains(a.title);
+
+  /// Remove all legacy seed artworks from every source.
   Future<void> _purgeLegacySeedData() async {
-    final toRemove = _artworks.where((a) =>
-        a.title == 'Perro semihundido' && a.author == 'Francisco de Goya',
-    ).toList();
+    final toRemove = _artworks.where(_isSeedArtwork).toList();
 
     for (final artwork in toRemove) {
-      debugPrint('Purging legacy seed artwork: ${artwork.title}');
-      // Delete from Firestore
+      debugPrint('Purging seed artwork: ${artwork.title}');
       if (_useFirebase && _uid != null) {
         try {
           await _firestoreService.deleteArtwork(_uid!, artwork.id);
@@ -156,7 +164,6 @@ class ArtCollectionProvider extends ChangeNotifier {
           debugPrint('Firestore purge failed: $e');
         }
       }
-      // Delete from local storage
       try {
         await _localDb.deleteArtwork(artwork.id);
       } catch (e) {
@@ -165,8 +172,7 @@ class ArtCollectionProvider extends ChangeNotifier {
     }
 
     if (toRemove.isNotEmpty) {
-      _artworks.removeWhere((a) =>
-          a.title == 'Perro semihundido' && a.author == 'Francisco de Goya');
+      _artworks.removeWhere(_isSeedArtwork);
     }
   }
 
