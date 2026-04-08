@@ -76,7 +76,7 @@ class ArtCollectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Load artworks — tries Firebase first, falls back to local cache
+  /// Load artworks — merges Firebase + local to never lose data
   Future<void> loadArtworks({String? uid}) async {
     _uid = uid;
     _useFirebase = uid != null;
@@ -84,16 +84,45 @@ class ArtCollectionProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // Always load local data first (our reliable source)
+      List<ArtWork> localArtworks = [];
+      try {
+        localArtworks = await _localDb.getAllArtworks();
+        debugPrint('Loaded ${localArtworks.length} artworks from local');
+      } catch (e) {
+        debugPrint('Local load failed: $e');
+      }
+
       if (_useFirebase) {
         try {
-          _artworks = await _firestoreService.getAllArtworks(uid!);
-          debugPrint('Loaded ${_artworks.length} artworks from Firestore');
+          final firestoreArtworks = await _firestoreService.getAllArtworks(uid!);
+          debugPrint('Loaded ${firestoreArtworks.length} artworks from Firestore');
+
+          if (firestoreArtworks.isNotEmpty) {
+            // Merge: use Firestore as base, add any local-only artworks
+            final firestoreIds = firestoreArtworks.map((a) => a.id).toSet();
+            final localOnly = localArtworks.where((a) => !firestoreIds.contains(a.id));
+            _artworks = [...firestoreArtworks, ...localOnly];
+
+            // Sync local-only artworks to Firestore
+            for (final artwork in localOnly) {
+              try {
+                await _firestoreService.insertArtwork(uid!, artwork);
+                debugPrint('Synced local artwork to Firestore: ${artwork.id}');
+              } catch (e) {
+                debugPrint('Sync to Firestore failed: $e');
+              }
+            }
+          } else {
+            // Firestore empty — use local data
+            _artworks = localArtworks;
+          }
         } catch (e) {
-          debugPrint('Firestore load failed: $e — falling back to local');
-          _artworks = await _localDb.getAllArtworks();
+          debugPrint('Firestore load failed: $e — using local data');
+          _artworks = localArtworks;
         }
       } else {
-        _artworks = await _localDb.getAllArtworks();
+        _artworks = localArtworks;
       }
 
       // Purge legacy seed artworks (Goya) from all sources
